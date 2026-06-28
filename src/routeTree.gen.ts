@@ -13,6 +13,8 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DealsIndexRouteImport } from './routes/deals.index'
+import { Route as DealsNewRouteImport } from './routes/deals.new'
+import { Route as DealsIdRouteImport } from './routes/deals.$id'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
@@ -34,17 +36,31 @@ const DealsIndexRoute = DealsIndexRouteImport.update({
   path: '/deals/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DealsNewRoute = DealsNewRouteImport.update({
+  id: '/deals/new',
+  path: '/deals/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealsIdRoute = DealsIdRouteImport.update({
+  id: '/deals/$id',
+  path: '/deals/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deals/$id': typeof DealsIdRoute
+  '/deals/new': typeof DealsNewRoute
   '/deals/': typeof DealsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deals/$id': typeof DealsIdRoute
+  '/deals/new': typeof DealsNewRoute
   '/deals': typeof DealsIndexRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,37 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deals/$id': typeof DealsIdRoute
+  '/deals/new': typeof DealsNewRoute
   '/deals/': typeof DealsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/deals/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/deals/$id'
+    | '/deals/new'
+    | '/deals/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/deals'
-  id: '__root__' | '/' | '/auth' | '/dashboard' | '/deals/'
+  to: '/' | '/auth' | '/dashboard' | '/deals/$id' | '/deals/new' | '/deals'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/dashboard'
+    | '/deals/$id'
+    | '/deals/new'
+    | '/deals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  DealsIdRoute: typeof DealsIdRoute
+  DealsNewRoute: typeof DealsNewRoute
   DealsIndexRoute: typeof DealsIndexRoute
 }
 
@@ -99,6 +132,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DealsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/deals/new': {
+      id: '/deals/new'
+      path: '/deals/new'
+      fullPath: '/deals/new'
+      preLoaderRoute: typeof DealsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deals/$id': {
+      id: '/deals/$id'
+      path: '/deals/$id'
+      fullPath: '/deals/$id'
+      preLoaderRoute: typeof DealsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -106,6 +153,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  DealsIdRoute: DealsIdRoute,
+  DealsNewRoute: DealsNewRoute,
   DealsIndexRoute: DealsIndexRoute,
 }
 export const routeTree = rootRouteImport
