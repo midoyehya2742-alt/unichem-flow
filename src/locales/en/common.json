@@ -75,6 +75,10 @@
     "add_product": "Add Product",
     "edit_product": "Edit product",
     "search": "Search chemical name, SKU, or category...",
+    "product": "Product Name",
+    "stock": "Stock",
+    "min_level": "Min Level",
+    "price": "Price",
     "all_levels": "All stock levels",
     "low_stock_only": "Low stock only",
     "all_categories": "All Categories",
@@ -339,7 +343,14 @@
     "title": "Security Audit log",
     "desc": "Immutable chronological register of admin actions, modifications, and system events.",
     "clean_ledger": "Clean audit ledger",
-    "no_mods": "No system modifications or security actions have been logged yet."
+    "no_mods": "No system modifications or security actions have been logged yet.",
+    "search_placeholder": "Search actor, action or details...",
+    "no_changes": "No property changes logged.",
+    "actions": {
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    }
   },
   "shell": {
     "core_functions": "Core Functions",
