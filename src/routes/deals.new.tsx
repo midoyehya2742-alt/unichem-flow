@@ -281,7 +281,7 @@ function NewDeal() {
                       low ? "border-amber-500/35 bg-amber-500/5 dark:bg-amber-500/10" : "border-slate-200 dark:border-slate-800"
                     )}
                   >
-                    <div className="col-span-12 sm:col-span-5 space-y-1">
+                    <div className="col-span-12 lg:col-span-5 space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-500">{t("deals.chemical_sku")}</Label>
                       <Select value={line.productId} onValueChange={(v) => pickProduct(i, v)}>
                         <SelectTrigger className="h-9 text-xs">
@@ -296,7 +296,7 @@ function NewDeal() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <div className="col-span-6 sm:col-span-4 lg:col-span-2 space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-500">{t("deals.qty")}</Label>
                       <Input
                         type="number"
@@ -307,7 +307,7 @@ function NewDeal() {
                         className="h-9 text-xs"
                       />
                     </div>
-                    <div className="col-span-4 sm:col-span-2 space-y-1">
+                    <div className="col-span-6 sm:col-span-4 lg:col-span-2 space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-500">{t("deals.unit_price")}</Label>
                       <Input
                         type="number"
@@ -318,7 +318,7 @@ function NewDeal() {
                         className="h-9 text-xs"
                       />
                     </div>
-                    <div className="col-span-3 sm:col-span-2 space-y-1">
+                    <div className="col-span-9 sm:col-span-3 lg:col-span-2 space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-500">{t("deals.disc_pct")}</Label>
                       <Input
                         type="number"
@@ -329,7 +329,7 @@ function NewDeal() {
                         className="h-9 text-xs"
                       />
                     </div>
-                    <div className="col-span-1 flex items-center justify-end">
+                    <div className="col-span-3 sm:col-span-1 lg:col-span-1 flex items-center justify-end">
                       <Button
                         size="icon"
                         variant="ghost"

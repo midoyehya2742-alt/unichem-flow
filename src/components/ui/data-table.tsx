@@ -12,7 +12,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import { useTranslation } from "react-i18next"
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, SlidersHorizontal, Inbox } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Inbox } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
@@ -56,6 +57,28 @@ export function DataTable<TData, TValue>({
       columnVisibility,
     },
   })
+
+  const getMobileHeaderLabel = (id: string) => {
+    const mapping: Record<string, string> = {
+      reference: t("deals.reference", "Reference"),
+      dealDate: t("deals.date", "Date"),
+      customerName: t("deals.customer", "Customer"),
+      salesmanName: t("deals.salesman", "Salesman"),
+      total: t("deals.total_value", "Total Value"),
+      paymentStatus: t("deals.status", "Status"),
+      sku: t("inventory.sku", "SKU"),
+      name: t("inventory.product", "Product Name"),
+      category: t("inventory.category", "Category"),
+      stockQuantity: t("inventory.stock", "Stock"),
+      minimumStockLevel: t("inventory.min_level", "Min Level"),
+      defaultPrice: t("inventory.price", "Price"),
+      email: t("customers.email", "Email"),
+      phone: t("customers.phone", "Phone"),
+      company: t("customers.company", "Company"),
+      taxId: t("customers.tax_id", "Tax ID"),
+    }
+    return mapping[id] || id.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim()
+  }
 
   return (
     <div className="space-y-4">
@@ -95,7 +118,9 @@ export function DataTable<TData, TValue>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden">
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-md">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -147,6 +172,50 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
+      {/* Mobile Stacked Card View */}
+      <div className="md:hidden space-y-4">
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => (
+            <Card key={row.id} className="border-slate-200 dark:border-slate-800 shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                {row.getVisibleCells().map((cell) => {
+                  const isAction = cell.column.id === "actions"
+                  if (isAction) return null
+
+                  const cleanHeader = getMobileHeaderLabel(cell.column.id)
+
+                  return (
+                    <div key={cell.id} className="flex justify-between items-start gap-4 text-xs">
+                      <span className="font-semibold text-slate-500 capitalize shrink-0">{cleanHeader}</span>
+                      <span className="text-slate-800 dark:text-slate-200 text-right font-medium break-all">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </span>
+                    </div>
+                  )
+                })}
+
+                {/* Render Actions at the bottom of the card */}
+                {row.getVisibleCells().some(c => c.column.id === "actions") && (
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end gap-2">
+                    {flexRender(
+                      row.getVisibleCells().find(c => c.column.id === "actions")!.column.columnDef.cell,
+                      row.getVisibleCells().find(c => c.column.id === "actions")!.getContext()
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-8 text-center text-slate-500">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <Inbox className="h-6 w-6 text-slate-400" />
+              <p className="font-semibold text-slate-700 dark:text-slate-300">{t("no_results", "No data to display")}</p>
+            </div>
+          </Card>
+        )}
+      </div>
+
       <div className="flex items-center justify-between px-2">
         <div className="text-xs text-slate-500">
           {t("showing_rows", "Showing {{count}} rows", { count: table.getRowModel().rows.length })}
@@ -176,7 +245,6 @@ export function DataTable<TData, TValue>({
   )
 }
 
-// Utility to render sortable headers easily
 export function DataTableColumnHeader<TData, TValue>({
   column,
   title,
