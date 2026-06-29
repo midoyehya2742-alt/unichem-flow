@@ -13,6 +13,7 @@ import { Route as UsersRouteImport } from './routes/users'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProductsRouteImport } from './routes/products'
+import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -40,6 +41,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ProductsRoute = ProductsRouteImport.update({
   id: '/products',
   path: '/products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
+  '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
+  '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/customers': typeof CustomersRoute
   '/dashboard': typeof DashboardRoute
+  '/inventory': typeof InventoryRoute
   '/products': typeof ProductsRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/customers'
     | '/dashboard'
+    | '/inventory'
     | '/products'
     | '/reports'
     | '/settings'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/customers'
     | '/dashboard'
+    | '/inventory'
     | '/products'
     | '/reports'
     | '/settings'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/customers'
     | '/dashboard'
+    | '/inventory'
     | '/products'
     | '/reports'
     | '/settings'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CustomersRoute: typeof CustomersRoute
   DashboardRoute: typeof DashboardRoute
+  InventoryRoute: typeof InventoryRoute
   ProductsRoute: typeof ProductsRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/products'
       fullPath: '/products'
       preLoaderRoute: typeof ProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CustomersRoute: CustomersRoute,
   DashboardRoute: DashboardRoute,
+  InventoryRoute: InventoryRoute,
   ProductsRoute: ProductsRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
@@ -292,3 +313,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

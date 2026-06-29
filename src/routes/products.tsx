@@ -26,7 +26,22 @@ function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
 
-  const openNew = () => { setEditing({ id: newId(), sku: "", name: "", unit: "kg", defaultPrice: 0, archived: false, createdAt: nowIso() }); setOpen(true); };
+  const openNew = () => {
+    setEditing({
+      id: newId(),
+      sku: "",
+      name: "",
+      category: "General",
+      unit: "KG",
+      stockQuantity: 0,
+      minimumStockLevel: 0,
+      defaultPrice: 0,
+      archived: false,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    });
+    setOpen(true);
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -39,17 +54,19 @@ function ProductsPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">SKU</th>
                 <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">Category</th>
                 <th className="px-4 py-3 font-medium">Unit</th>
                 <th className="px-4 py-3 font-medium text-right">Default price</th>
                 <th className="px-4 py-3 w-32"></th>
               </tr>
             </thead>
             <tbody>
-              {list.length === 0 ? <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">No products</td></tr> :
+              {list.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No products</td></tr> :
                 list.map((p) => (
                   <tr key={p.id} className="border-t">
                     <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
                     <td className="px-4 py-3 font-medium">{p.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{p.category}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.unit}</td>
                     <td className="px-4 py-3 text-right">{formatEGP(p.defaultPrice)}</td>
                     <td className="px-4 py-3 text-right">
@@ -73,7 +90,14 @@ function ProductsPage() {
               <Field label="SKU *"><Input value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} /></Field>
               <Field label="Name *"><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Field>
               <div className="grid grid-cols-2 gap-3">
+                <Field label="Category"><Input value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} /></Field>
                 <Field label="Unit"><Input value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} /></Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Stock quantity"><Input type="number" min={0} step="0.01" value={editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} /></Field>
+                <Field label="Minimum stock"><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} /></Field>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
                 <Field label="Default price (EGP)"><Input type="number" min={0} step="0.01" value={editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} /></Field>
               </div>
             </div>

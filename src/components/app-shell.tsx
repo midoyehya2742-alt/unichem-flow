@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, FileText, Plus, Users, Package, UserCog,
-  BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker,
+  BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker, Warehouse,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Role } from "@/lib/types";
@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { to: "/deals", label: "Deals", icon: FileText, roles: ["admin", "finance", "salesman"] },
   { to: "/customers", label: "Customers", icon: Users, roles: ["admin", "finance", "salesman"] },
   { to: "/products", label: "Products", icon: Package, roles: ["admin", "finance"] },
+  { to: "/inventory", label: "Inventory", icon: Warehouse, roles: ["admin", "finance"] },
   { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "finance"] },
   { to: "/users", label: "Users", icon: UserCog, roles: ["admin"] },
   { to: "/audit", label: "Audit Log", icon: ScrollText, roles: ["admin"] },

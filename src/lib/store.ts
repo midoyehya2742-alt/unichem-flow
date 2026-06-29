@@ -1,180 +1,459 @@
-/**
- * Frontend-only mock data store backed by localStorage.
- * Replace every function in this file with Supabase queries when wiring backend.
- * See README.md "Backend Integration" for the exact mapping.
- */
+import { useEffect, useState } from "react";
+import { supabase } from "./supabase";
 import type {
   AuditEntry,
   CompanySettings,
   Customer,
   Deal,
+  InventoryMovement,
   Product,
   User,
 } from "./types";
-
-const KEY = "unichem.db.v1";
 
 interface DB {
   users: User[];
   customers: Customer[];
   products: Product[];
+  inventoryMovements: InventoryMovement[];
   deals: Deal[];
   audit: AuditEntry[];
   settings: CompanySettings;
-  passwords: Record<string, string>; // email -> password (MOCK ONLY)
 }
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-const now = () => new Date().toISOString();
+const emptyDb = (): DB => ({
+  users: [],
+  customers: [],
+  products: [],
+  inventoryMovements: [],
+  deals: [],
+  audit: [],
+  settings: { companyName: "UniChem ERP", defaultTax: 14, currency: "EGP" },
+});
 
-const seed = (): DB => {
-  const adminId = uid();
-  const financeId = uid();
-  const salesId = uid();
-  return {
-    users: [
-      { id: adminId, email: "midoyehya2742@gmail.com", name: "Mido (Admin)", role: "admin", active: true, createdAt: now() },
-      { id: financeId, email: "finance@unichem.local", name: "Finance Lead", role: "finance", active: true, createdAt: now() },
-      { id: salesId, email: "sales@unichem.local", name: "Ahmed Sales", role: "salesman", active: true, createdAt: now() },
-    ],
-    passwords: {
-      "midoyehya2742@gmail.com": "memo2742",
-      "finance@unichem.local": "finance123",
-      "sales@unichem.local": "sales123",
-    },
-    customers: [
-      { id: uid(), name: "Cairo Pharma Co.", company: "Cairo Pharma", phone: "+20 100 111 2222", email: "buyer@cairopharma.eg", address: "Nasr City, Cairo", archived: false, createdAt: now() },
-      { id: uid(), name: "Alex Industrial", company: "Alex Industrial Group", phone: "+20 122 333 4444", email: "ops@alexind.eg", address: "Smouha, Alexandria", archived: false, createdAt: now() },
-      { id: uid(), name: "Delta Labs", company: "Delta Labs", phone: "+20 111 555 6666", email: "info@deltalabs.eg", address: "Mansoura", archived: false, createdAt: now() },
-    ],
-    products: [
-      { id: uid(), sku: "CHM-001", name: "Acetic Acid 99%", unit: "L", defaultPrice: 85, archived: false, createdAt: now() },
-      { id: uid(), sku: "CHM-002", name: "Sodium Hydroxide", unit: "kg", defaultPrice: 42, archived: false, createdAt: now() },
-      { id: uid(), sku: "CHM-003", name: "Isopropyl Alcohol", unit: "L", defaultPrice: 120, archived: false, createdAt: now() },
-      { id: uid(), sku: "CHM-004", name: "Hydrogen Peroxide 30%", unit: "L", defaultPrice: 95, archived: false, createdAt: now() },
-    ],
-    deals: [],
-    audit: [],
-    settings: {
-      companyName: "UniChem",
-      defaultTax: 14,
-      currency: "EGP",
-    },
-  };
+let db = emptyDb();
+
+const emit = () => {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("unichem-db-change"));
 };
 
-function read(): DB {
-  if (typeof window === "undefined") return seed();
-  const raw = localStorage.getItem(KEY);
-  if (!raw) {
-    const fresh = seed();
-    localStorage.setItem(KEY, JSON.stringify(fresh));
-    return fresh;
-  }
-  try { return JSON.parse(raw) as DB; } catch { return seed(); }
+const uid = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return Math.random().toString(36).slice(2, 10);
+};
+const now = () => new Date().toISOString();
+
+const fromProfile = (r: any): User => ({
+  id: r.id,
+  email: r.email || "",
+  name: r.name,
+  role: r.user_roles?.[0]?.role || "salesman",
+  phone: r.phone ?? undefined,
+  active: r.active,
+  createdAt: r.created_at,
+});
+
+const toProfile = (u: User) => ({
+  id: u.id,
+  email: u.email,
+  name: u.name,
+  phone: u.phone ?? null,
+  active: u.active,
+  created_at: u.createdAt,
+});
+
+const fromCustomer = (r: any): Customer => ({
+  id: r.id,
+  name: r.name,
+  company: r.company ?? undefined,
+  phone: r.phone ?? undefined,
+  email: r.email ?? undefined,
+  address: r.address ?? undefined,
+  taxId: r.tax_id ?? undefined,
+  archived: r.archived,
+  createdAt: r.created_at,
+});
+
+const toCustomer = (c: Customer) => ({
+  id: c.id,
+  name: c.name,
+  company: c.company ?? null,
+  phone: c.phone ?? null,
+  email: c.email ?? null,
+  address: c.address ?? null,
+  tax_id: c.taxId ?? null,
+  archived: c.archived,
+  created_at: c.createdAt,
+});
+
+const fromProduct = (r: any): Product => ({
+  id: r.id,
+  sku: r.sku,
+  name: r.name,
+  category: r.category,
+  unit: r.unit,
+  stockQuantity: Number(r.stock_quantity || 0),
+  minimumStockLevel: Number(r.minimum_stock_level || 0),
+  defaultPrice: Number(r.default_price || 0),
+  archived: r.archived,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const toProduct = (p: Product) => ({
+  id: p.id,
+  sku: p.sku,
+  name: p.name,
+  category: p.category,
+  unit: p.unit,
+  stock_quantity: p.stockQuantity,
+  minimum_stock_level: p.minimumStockLevel,
+  default_price: p.defaultPrice,
+  archived: p.archived,
+  created_at: p.createdAt,
+  updated_at: p.updatedAt,
+});
+
+const fromDeal = (r: any, users: User[], customers: Customer[]): Deal => ({
+  id: r.id,
+  reference: r.reference,
+  salesmanId: r.salesman_id,
+  salesmanName: users.find(u => u.id === r.salesman_id)?.name || "Unknown",
+  customerId: r.customer_id,
+  customerName: customers.find(c => c.id === r.customer_id)?.name || "Unknown",
+  lines: r.lines || [],
+  subtotal: Number(r.subtotal || 0),
+  discount: Number(r.discount || 0),
+  tax: Number(r.tax || 0),
+  total: Number(r.total || 0),
+  currency: "EGP",
+  paymentStatus: r.payment_status,
+  amountPaid: Number(r.amount_paid || 0),
+  dealStatus: r.deal_status,
+  notes: r.notes ?? undefined,
+  financeNotes: (r.finance_notes || []).map((n: any) => ({
+    id: n.id, authorId: n.author_id, authorName: users.find(u => u.id === n.author_id)?.name || "Unknown",
+    text: n.text, createdAt: n.created_at
+  })),
+  attachments: (r.deal_attachments || []).map((a: any) => ({
+    id: a.id, name: a.name, size: a.size, type: a.mime, dataUrl: a.storage_path
+  })),
+  dealDate: r.deal_date,
+  expectedPaymentDate: r.expected_payment_date ?? undefined,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+const toDeal = (d: Deal) => ({
+  id: d.id,
+  reference: d.reference,
+  salesman_id: d.salesmanId,
+  customer_id: d.customerId,
+  lines: d.lines,
+  subtotal: d.subtotal,
+  discount: d.discount,
+  tax: d.tax,
+  total: d.total,
+  currency: d.currency,
+  payment_status: d.paymentStatus,
+  amount_paid: d.amountPaid,
+  deal_status: d.dealStatus,
+  notes: d.notes ?? null,
+  deal_date: d.dealDate,
+  expected_payment_date: d.expectedPaymentDate ?? null,
+  created_at: d.createdAt,
+  updated_at: d.updatedAt,
+});
+
+const fromMovement = (r: any, products: Product[], users: User[]): InventoryMovement => ({
+  id: r.id,
+  productId: r.product_id,
+  productName: products.find(p => p.id === r.product_id)?.name || "Unknown",
+  type: r.movement_type,
+  quantityBefore: Number(r.quantity_before || 0),
+  quantityAfter: Number(r.quantity_after || 0),
+  quantityChanged: Number(r.quantity_changed || 0),
+  reason: r.reason ?? undefined,
+  dealId: r.deal_id ?? undefined,
+  actorId: r.actor_id,
+  actorName: users.find(u => u.id === r.actor_id)?.name || "Unknown",
+  createdAt: r.created_at,
+});
+
+const fromAudit = (r: any, users: User[]): AuditEntry => ({
+  id: r.id,
+  actorId: r.actor_id,
+  actorName: users.find(u => u.id === r.actor_id)?.name || "Unknown",
+  action: r.action,
+  entity: r.entity,
+  entityId: r.entity_id,
+  details: r.details ?? undefined,
+  createdAt: r.created_at,
+});
+
+const fromSettings = (r: any): CompanySettings => ({
+  companyName: r.company_name,
+  defaultTax: Number(r.default_tax || 0),
+  currency: "EGP",
+  logoDataUrl: r.logo_data_url ?? undefined,
+});
+
+async function refreshAll() {
+  const [usersRes, customersRes, productsRes, dealsRes, movementsRes, auditRes, settingsRes] = await Promise.all([
+    supabase.from("profiles").select("*, user_roles(role)").order("created_at", { ascending: true }),
+    supabase.from("customers").select("*").order("name", { ascending: true }),
+    supabase.from("products").select("*").order("name", { ascending: true }),
+    supabase.from("deals").select("*, finance_notes(*), deal_attachments(*)").order("created_at", { ascending: false }),
+    supabase.from("inventory_movements").select("*").order("created_at", { ascending: false }),
+    supabase.from("audit_logs").select("*").order("created_at", { ascending: false }),
+    supabase.from("company_settings").select("*").limit(1),
+  ]);
+
+  const users = (usersRes.data || []).map(fromProfile);
+  const customers = (customersRes.data || []).map(fromCustomer);
+  const products = (productsRes.data || []).map(fromProduct);
+
+  db = {
+    users,
+    customers,
+    products,
+    deals: (dealsRes.data || []).map(d => fromDeal(d, users, customers)),
+    inventoryMovements: (movementsRes.data || []).map(m => fromMovement(m, products, users)),
+    audit: (auditRes.data || []).map(a => fromAudit(a, users)),
+    settings: settingsRes.data?.[0] ? fromSettings(settingsRes.data[0]) : db.settings,
+  };
+  emit();
 }
 
-function write(db: DB) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(db));
-  window.dispatchEvent(new Event("unichem-db-change"));
+async function refreshInventory() {
+  const [productsRes, movementsRes] = await Promise.all([
+    supabase.from("products").select("*").order("name", { ascending: true }),
+    supabase.from("inventory_movements").select("*").order("created_at", { ascending: false }),
+  ]);
+  const products = (productsRes.data || []).map(fromProduct);
+  db.products = products;
+  db.inventoryMovements = (movementsRes.data || []).map(m => fromMovement(m, products, db.users));
+  emit();
 }
+
+function remote(task: Promise<unknown>) {
+  task.catch((error) => {
+    console.error(error);
+  }).finally(() => {
+    refreshAll().catch(console.error);
+  });
+}
+
+// ensure hydration on boot if logged in
+supabase.auth.getSession().then(({ data: { session } }) => {
+  if (session) refreshAll();
+});
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) refreshAll();
+});
 
 export const store = {
-  all: () => read(),
-  reset: () => write(seed()),
-
-  // auth
-  verifyLogin(email: string, password: string): User | null {
-    const db = read();
-    const user = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.active);
-    if (!user) return null;
-    if (db.passwords[user.email] !== password) return null;
-    return user;
+  all: () => db,
+  reset: () => {
+    db = emptyDb();
+    emit();
   },
-
-  // users
-  listUsers: () => read().users,
+  
+  listUsers: () => db.users,
   upsertUser(u: User, password?: string) {
-    const db = read();
-    const i = db.users.findIndex((x) => x.id === u.id);
-    if (i >= 0) db.users[i] = u; else db.users.push(u);
-    if (password) db.passwords[u.email] = password;
-    write(db);
+    const exists = db.users.some((x) => x.id === u.id);
+    db.users = exists ? db.users.map((x) => (x.id === u.id ? u : x)) : [...db.users, u];
+    emit();
+    if (password && !exists) {
+      remote(supabase.rpc("create_app_user", {
+        p_email: u.email,
+        p_password: password,
+        p_name: u.name,
+        p_role: u.role,
+        p_phone: u.phone ?? null,
+        p_active: u.active,
+      }));
+    } else {
+      remote(Promise.all([
+        supabase.from("profiles").upsert(toProfile(u)),
+        supabase.from("user_roles").upsert({ user_id: u.id, role: u.role }, { onConflict: "user_id, role" })
+      ]));
+    }
   },
   deleteUser(id: string) {
-    const db = read();
     db.users = db.users.filter((u) => u.id !== id);
-    write(db);
+    emit();
+    remote(supabase.from("profiles").delete().eq("id", id));
   },
 
-  // customers
-  listCustomers: () => read().customers.filter((c) => !c.archived),
+  listCustomers: () => db.customers.filter((c) => !c.archived),
   upsertCustomer(c: Customer) {
-    const db = read();
-    const i = db.customers.findIndex((x) => x.id === c.id);
-    if (i >= 0) db.customers[i] = c; else db.customers.push(c);
-    write(db);
+    db.customers = db.customers.some((x) => x.id === c.id)
+      ? db.customers.map((x) => (x.id === c.id ? c : x))
+      : [...db.customers, c];
+    emit();
+    remote(supabase.from("customers").upsert(toCustomer(c)));
   },
   archiveCustomer(id: string) {
-    const db = read();
-    const c = db.customers.find((x) => x.id === id);
-    if (c) c.archived = true;
-    write(db);
+    db.customers = db.customers.map((c) => (c.id === id ? { ...c, archived: true } : c));
+    emit();
+    remote(supabase.from("customers").update({ archived: true }).eq("id", id));
   },
 
-  // products
-  listProducts: () => read().products.filter((p) => !p.archived),
+  listProducts: () => db.products.filter((p) => !p.archived),
   upsertProduct(p: Product) {
-    const db = read();
-    const i = db.products.findIndex((x) => x.id === p.id);
-    if (i >= 0) db.products[i] = p; else db.products.push(p);
-    write(db);
+    const next = { ...p, updatedAt: now() };
+    db.products = db.products.some((x) => x.id === next.id)
+      ? db.products.map((x) => (x.id === next.id ? next : x))
+      : [...db.products, next];
+    emit();
+    remote(supabase.from("products").upsert(toProduct(next)));
   },
   archiveProduct(id: string) {
-    const db = read();
-    const p = db.products.find((x) => x.id === id);
-    if (p) p.archived = true;
-    write(db);
+    db.products = db.products.map((p) => (p.id === id ? { ...p, archived: true } : p));
+    emit();
+    remote(supabase.from("products").update({ archived: true }).eq("id", id));
+  },
+  deleteProduct(id: string) {
+    db.products = db.products.filter((p) => p.id !== id);
+    emit();
+    remote(supabase.from("products").delete().eq("id", id));
   },
 
-  // deals
-  listDeals: () => read().deals.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-  getDeal: (id: string) => read().deals.find((d) => d.id === id),
-  createDeal(d: Deal) {
-    const db = read();
-    db.deals.push(d);
-    db.audit.push({
-      id: uid(), actorId: d.salesmanId, actorName: d.salesmanName,
-      action: "create", entity: "deal", entityId: d.id,
-      details: `Created deal ${d.reference} for ${d.customerName} — ${d.total} EGP`,
+  listInventoryMovements: () => db.inventoryMovements.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  adjustInventory(productId: string, quantityAfter: number, actor: User, type: InventoryMovement["type"], reason?: string) {
+    const p = db.products.find((x) => x.id === productId);
+    if (!p) return;
+    const before = p.stockQuantity;
+    const after = Math.max(0, quantityAfter);
+    db.products = db.products.map((x) => (x.id === productId ? { ...x, stockQuantity: after, updatedAt: now() } : x));
+    
+    // We add optimistic movement
+    const movementId = uid();
+    db.inventoryMovements = [{
+      id: movementId,
+      productId,
+      productName: p.name,
+      type,
+      quantityBefore: before,
+      quantityAfter: after,
+      quantityChanged: after - before,
+      reason,
+      actorId: actor.id,
+      actorName: actor.name,
       createdAt: now(),
+    }, ...db.inventoryMovements];
+    emit();
+
+    remote(supabase.from("inventory_movements").insert({
+      id: movementId,
+      product_id: productId,
+      movement_type: type,
+      quantity_before: before,
+      quantity_after: after,
+      quantity_changed: after - before,
+      reason: reason || null,
+      actor_id: actor.id,
+      created_at: now()
+    }).then(() => supabase.from("products").update({ stock_quantity: after, updated_at: now() }).eq("id", productId)));
+  },
+
+  listDeals: () => db.deals.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  getDeal: (id: string) => db.deals.find((d) => d.id === id),
+  createDeal(d: Deal, overrideStock = false) {
+    if (!overrideStock) {
+      const short = d.lines.find((line) => {
+        const p = db.products.find((x) => x.id === line.productId && !x.archived);
+        return !p || p.stockQuantity < line.quantity;
+      });
+      if (short) throw new Error("Warning: Not enough inventory available.");
+    }
+    db.deals = [d, ...db.deals];
+    d.lines.forEach((line) => {
+      const p = db.products.find((x) => x.id === line.productId);
+      if (!p) return;
+      const after = Math.max(0, p.stockQuantity - line.quantity);
+      db.products = db.products.map((x) => (x.id === p.id ? { ...x, stockQuantity: after, updatedAt: now() } : x));
     });
-    write(db);
+    emit();
+
+    const doCreateDeal = async () => {
+      await supabase.from("deals").insert(toDeal(d));
+      // Deal attachments
+      if (d.attachments.length > 0) {
+        await supabase.from("deal_attachments").insert(
+          d.attachments.map(a => ({
+            id: a.id,
+            deal_id: d.id,
+            name: a.name,
+            size: a.size,
+            mime: a.type,
+            storage_path: a.dataUrl, // in a real app, upload to storage and store path
+            uploaded_by: d.salesmanId,
+          }))
+        );
+      }
+      
+      // Update inventory based on deal
+      const movements = d.lines.map(line => {
+        const p = db.products.find((x) => x.id === line.productId);
+        const before = p?.stockQuantity || 0;
+        return {
+          product_id: line.productId,
+          movement_type: overrideStock ? "override-sale" : "sale",
+          quantity_before: before,
+          quantity_after: Math.max(0, before - line.quantity),
+          quantity_changed: -line.quantity,
+          deal_id: d.id,
+          actor_id: d.salesmanId,
+        };
+      });
+      
+      for (const m of movements) {
+        await supabase.from("inventory_movements").insert(m);
+        await supabase.from("products").update({ stock_quantity: m.quantity_after }).eq("id", m.product_id);
+      }
+    };
+    remote(doCreateDeal());
   },
   updateDeal(d: Deal, actor: User) {
-    const db = read();
-    const i = db.deals.findIndex((x) => x.id === d.id);
-    if (i < 0) return;
-    db.deals[i] = { ...d, updatedAt: now() };
-    db.audit.push({
-      id: uid(), actorId: actor.id, actorName: actor.name,
-      action: "update", entity: "deal", entityId: d.id,
-      details: `Updated deal ${d.reference}`,
-      createdAt: now(),
-    });
-    write(db);
+    const prev = db.deals.find(x => x.id === d.id);
+    const next = { ...d, updatedAt: now() };
+    db.deals = db.deals.map((x) => (x.id === d.id ? next : x));
+    emit();
+
+    const doUpdateDeal = async () => {
+      await supabase.from("deals").update(toDeal(next)).eq("id", d.id);
+      
+      // Handle new finance notes
+      if (prev) {
+        const newNotes = d.financeNotes.filter(n => !prev.financeNotes.find(pn => pn.id === n.id));
+        if (newNotes.length > 0) {
+          await supabase.from("finance_notes").insert(
+            newNotes.map(n => ({
+              id: n.id,
+              deal_id: d.id,
+              author_id: n.authorId,
+              text: n.text,
+              created_at: n.createdAt
+            }))
+          );
+        }
+      }
+    };
+    remote(doUpdateDeal());
   },
 
-  // audit
-  listAudit: () => read().audit.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-
-  // settings
-  getSettings: () => read().settings,
+  listAudit: () => db.audit.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  getSettings: () => db.settings,
   updateSettings(s: CompanySettings) {
-    const db = read();
     db.settings = s;
-    write(db);
+    emit();
+    remote(supabase.from("company_settings").update({
+      company_name: s.companyName,
+      default_tax: s.defaultTax,
+      currency: s.currency,
+      logo_data_url: s.logoDataUrl ?? null,
+    }).eq("id", true));
   },
 };
 
@@ -182,23 +461,17 @@ export const newId = uid;
 export const nowIso = now;
 
 export function nextRef(prefix = "DL") {
-  const db = read();
   const n = db.deals.length + 1;
   const yy = new Date().getFullYear().toString().slice(-2);
   return `${prefix}-${yy}-${String(n).padStart(4, "0")}`;
 }
 
-import { useEffect, useState } from "react";
 export function useDb() {
   const [, setTick] = useState(0);
   useEffect(() => {
     const h = () => setTick((t) => t + 1);
     window.addEventListener("unichem-db-change", h);
-    window.addEventListener("storage", h);
-    return () => {
-      window.removeEventListener("unichem-db-change", h);
-      window.removeEventListener("storage", h);
-    };
+    return () => window.removeEventListener("unichem-db-change", h);
   }, []);
   return store;
 }

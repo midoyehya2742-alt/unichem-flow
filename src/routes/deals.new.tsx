@@ -8,13 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Paperclip, X } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, AlertTriangle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatEGP } from "@/lib/format";
@@ -47,6 +49,7 @@ function NewDeal() {
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [overrideStock, setOverrideStock] = useState(false);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
@@ -54,6 +57,13 @@ function NewDeal() {
     const total = afterDisc * (1 + (tax || 0) / 100);
     return { subtotal, total };
   }, [lines, discount, tax]);
+
+  const stockWarnings = useMemo(() => lines.flatMap((line) => {
+    if (!line.productId || line.quantity <= 0) return [];
+    const p = products.find((x) => x.id === line.productId);
+    if (!p || p.stockQuantity >= line.quantity) return [];
+    return [`${p.name}: requested ${line.quantity} ${p.unit}, available ${p.stockQuantity} ${p.unit}`];
+  }), [lines, products]);
 
   const updateLine = (i: number, patch: Partial<DealLine>) => {
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -90,9 +100,13 @@ function NewDeal() {
     if (!lines.length || lines.some((l) => !l.productId || l.quantity <= 0)) {
       return toast.error("Add at least one product with quantity");
     }
+    if (stockWarnings.length > 0 && !(user.role === "admin" && overrideStock)) {
+      return toast.error("Warning: Not enough inventory available.");
+    }
     const customer = customers.find((c) => c.id === customerId)!;
     const ref = nextRef();
-    db.createDeal({
+    try {
+      db.createDeal({
       id: newId(),
       reference: ref,
       salesmanId: user.id,
@@ -114,7 +128,10 @@ function NewDeal() {
       expectedPaymentDate: expectedPaymentDate ? new Date(expectedPaymentDate).toISOString() : undefined,
       createdAt: nowIso(),
       updatedAt: nowIso(),
-    });
+      }, user.role === "admin" && overrideStock);
+    } catch (error) {
+      return toast.error(error instanceof Error ? error.message : "Warning: Not enough inventory available.");
+    }
     toast.success(`Deal ${ref} submitted`);
     navigate({ to: "/deals" });
   };
@@ -161,14 +178,16 @@ function NewDeal() {
             <CardContent className="space-y-3">
               {lines.map((line, i) => {
                 const subtotal = line.quantity * line.unitPrice * (1 - (line.discount || 0) / 100);
+                const product = products.find((p) => p.id === line.productId);
+                const low = Boolean(product && line.quantity > product.stockQuantity);
                 return (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-end border rounded-lg p-3">
+                  <div key={i} className={low ? "grid grid-cols-12 gap-2 items-end border border-warning rounded-lg p-3 bg-warning/10" : "grid grid-cols-12 gap-2 items-end border rounded-lg p-3"}>
                     <div className="col-span-12 sm:col-span-5 space-y-1">
                       <Label className="text-xs">Product</Label>
                       <Select value={line.productId} onValueChange={(v) => pickProduct(i, v)}>
                         <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                         <SelectContent>
-                          {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku})</SelectItem>)}
+                          {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) - {p.stockQuantity} {p.unit}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -190,11 +209,31 @@ function NewDeal() {
                       </Button>
                     </div>
                     <div className="col-span-12 text-right text-xs text-muted-foreground">
+                      {product && <span className={low ? "mr-3 font-medium text-warning-foreground" : "mr-3"}>Available: {product.stockQuantity} {product.unit}</span>}
                       Subtotal: <span className="font-medium text-foreground">{formatEGP(subtotal)}</span>
                     </div>
                   </div>
                 );
               })}
+              {stockWarnings.length > 0 && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Warning: Not enough inventory available.</AlertTitle>
+                  <AlertDescription>
+                    <div className="space-y-2">
+                      <ul className="list-disc pl-5">
+                        {stockWarnings.map((w) => <li key={w}>{w}</li>)}
+                      </ul>
+                      {user?.role === "admin" && (
+                        <label className="flex items-center gap-2 text-sm font-medium">
+                          <Checkbox checked={overrideStock} onCheckedChange={(checked) => setOverrideStock(Boolean(checked))} />
+                          Admin override stock validation
+                        </label>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 

@@ -26,9 +26,31 @@ export interface Product {
   id: string;
   sku: string;
   name: string;
+  category: string;
   unit: string;
+  stockQuantity: number;
+  minimumStockLevel: number;
   defaultPrice: number;
   archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type InventoryAdjustmentType = "increase" | "decrease" | "correction" | "sale" | "override-sale";
+
+export interface InventoryMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  type: InventoryAdjustmentType;
+  quantityBefore: number;
+  quantityAfter: number;
+  quantityChanged: number;
+  reason?: string;
+  dealId?: string;
+  dealReference?: string;
+  actorId: string;
+  actorName: string;
   createdAt: string;
 }
 

@@ -1,21 +1,19 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { User } from "./types";
-import { store } from "./store";
-
-const SESSION_KEY = "unichem.session.v1";
+import type { User, Role } from "./types";
+import { supabase } from "./supabase";
 
 interface AuthCtx {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx>({
   user: null,
   loading: true,
-  login: () => ({ ok: false }),
-  logout: () => {},
+  login: async () => ({ ok: false }),
+  logout: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -23,28 +21,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const id = JSON.parse(raw) as string;
-        const u = store.listUsers().find((x) => x.id === id) ?? null;
-        setUser(u);
+    let mounted = true;
+
+    async function loadSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await hydrateUser(session.user.id, session.user.email || "");
+      } else {
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
       }
-    } catch {}
-    setLoading(false);
+    }
+
+    loadSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await hydrateUser(session.user.id, session.user.email || "");
+      } else {
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+
+    async function hydrateUser(id: string, email: string) {
+      if (!mounted) return;
+      try {
+        const [profileRes, roleRes] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", id).single(),
+          supabase.from("user_roles").select("role").eq("user_id", id).single(),
+        ]);
+        
+        if (profileRes.error) throw profileRes.error;
+        if (roleRes.error) throw roleRes.error;
+
+        if (mounted) {
+          setUser({
+            id: profileRes.data.id,
+            email: email,
+            name: profileRes.data.name,
+            role: roleRes.data.role as Role,
+            phone: profileRes.data.phone ?? undefined,
+            active: profileRes.data.active,
+            createdAt: profileRes.data.created_at,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to hydrate user", err);
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
   }, []);
 
-  const login = (email: string, password: string) => {
-    const u = store.verifyLogin(email, password);
-    if (!u) return { ok: false, error: "Invalid email or password" };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(u.id));
-    setUser(u);
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { ok: false, error: error.message };
     return { ok: true };
   };
 
-  const logout = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setUser(null);
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
   return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>;
