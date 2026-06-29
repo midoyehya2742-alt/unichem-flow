@@ -58,6 +58,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Internal sales & finance management system for UniChem." },
     ],
     links: [
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", href: "/pwa-icon.jpg" },
+      { rel: "apple-touch-icon", href: "/pwa-icon.jpg" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
