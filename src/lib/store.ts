@@ -235,8 +235,8 @@ async function refreshInventory() {
   emit();
 }
 
-function remote(task: PromiseLike<unknown>) {
-  Promise.resolve(task).catch((error) => {
+function remote(task: Promise<unknown>) {
+  task.catch((error) => {
     console.error(error);
   }).finally(() => {
     refreshAll().catch(console.error);
@@ -344,17 +344,20 @@ export const store = {
     }, ...db.inventoryMovements];
     emit();
 
-    remote(supabase.from("inventory_movements").insert({
-      id: movementId,
-      product_id: productId,
-      movement_type: type,
-      quantity_before: before,
-      quantity_after: after,
-      quantity_changed: after - before,
-      reason: reason || null,
-      actor_id: actor.id,
-      created_at: now()
-    }).then(() => supabase.from("products").update({ stock_quantity: after, updated_at: now() }).eq("id", productId)));
+    remote((async () => {
+      await supabase.from("inventory_movements").insert({
+        id: movementId,
+        product_id: productId,
+        movement_type: type,
+        quantity_before: before,
+        quantity_after: after,
+        quantity_changed: after - before,
+        reason: reason || null,
+        actor_id: actor.id,
+        created_at: now()
+      });
+      await supabase.from("products").update({ stock_quantity: after, updated_at: now() }).eq("id", productId);
+    })());
   },
 
   listDeals: () => db.deals.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
