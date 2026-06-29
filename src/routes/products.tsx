@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Archive, Pencil } from "lucide-react";
-import { useState } from "react";
+import { Plus, Archive, Pencil, Search, Box, PackageOpen } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { formatEGP } from "@/lib/format";
 import type { Product } from "@/lib/types";
@@ -22,7 +22,20 @@ export const Route = createFileRoute("/products")({
 
 function ProductsPage() {
   const db = useDb();
+  const [loading, setLoading] = useState(true);
   const list = db.listProducts();
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  const filtered = useMemo(
+    () => list.filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase()) || p.category.toLowerCase().includes(q.toLowerCase())),
+    [list, q],
+  );
+
   const [editing, setEditing] = useState<Product | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -44,69 +57,111 @@ function ProductsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      <PageHeader title="Products" description="Manage product catalog & default prices."
-        actions={<Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />New Product</Button>} />
-      <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium">SKU</th>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Unit</th>
-                <th className="px-4 py-3 font-medium text-right">Default price</th>
-                <th className="px-4 py-3 w-32"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">No products</td></tr> :
-                list.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="px-4 py-3 font-mono text-xs">{p.sku}</td>
-                    <td className="px-4 py-3 font-medium">{p.name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.category}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.unit}</td>
-                    <td className="px-4 py-3 text-right">{formatEGP(p.defaultPrice)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => { db.archiveProduct(p.id); toast.success("Archived"); }}>
-                        <Archive className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
+      <PageHeader
+        title="Product Catalog"
+        description="Configure product descriptions, chemical groups, standard units, and price points."
+        actions={<Button size="sm" onClick={openNew} className="h-9 text-xs"><Plus className="h-4 w-4 mr-2" />New Product</Button>}
+      />
+
+      <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+        <CardContent className="p-4 relative">
+          <Search className="h-4 w-4 absolute left-7 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input className="pl-9 h-10 text-xs focus-visible:ring-indigo-500 placeholder-slate-455" placeholder="Search products SKU, name or category..." value={q} onChange={(e) => setQ(e.target.value)} />
         </CardContent>
       </Card>
 
+      {loading ? (
+        <Card className="border-slate-200 dark:border-slate-800">
+          <div className="p-6 space-y-4">
+            <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+            <div className="h-4 w-full bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+          </div>
+        </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardContent className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
+              <PackageOpen className="h-6 w-6" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">No products found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+              {q ? "No records match your active search keyword." : "Your product catalog is currently empty."}
+            </p>
+            {!q && (
+              <Button size="sm" onClick={openNew} className="mt-4">
+                <Plus className="h-4 w-4 mr-2" /> Add First Product
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500">
+                <tr className="text-left font-semibold">
+                  <th className="px-5 py-3.5">SKU</th>
+                  <th className="px-5 py-3.5">Name</th>
+                  <th className="px-5 py-3.5">Category</th>
+                  <th className="px-5 py-3.5">Unit</th>
+                  <th className="px-5 py-3.5 text-right">Default price</th>
+                  <th className="px-5 py-3.5 text-right w-32">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filtered.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-100/40 dark:hover:bg-slate-800/20 transition-colors">
+                    <td className="px-5 py-3.5 font-mono font-bold text-slate-700 dark:text-slate-300">{p.sku}</td>
+                    <td className="px-5 py-3.5 font-bold text-slate-800 dark:text-slate-200">{p.name}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{p.category}</td>
+                    <td className="px-5 py-3.5 text-slate-500">{p.unit}</td>
+                    <td className="px-5 py-3.5 text-right font-semibold text-slate-900 dark:text-white">{formatEGP(p.defaultPrice)}</td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(p); setOpen(true); }} className="h-7 w-7 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button size="icon" variant="ghost" onClick={() => { db.archiveProduct(p.id); toast.success("Product archived"); }} className="h-7 w-7 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20">
+                          <Archive className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
       {editing && (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editing.name ? "Edit product" : "New product"}</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Field label="SKU *"><Input value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} /></Field>
-              <Field label="Name *"><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Field>
+          <DialogContent className="sm:max-w-md font-sans dark:bg-slate-900">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold">{editing.name ? "Edit product catalog entry" : "Create product catalog entry"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3.5 py-2 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Category"><Input value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} /></Field>
-                <Field label="Unit"><Input value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} /></Field>
+                <Field label="SKU *"><Input value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} className="h-9" /></Field>
+                <Field label="Name *"><Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="h-9" /></Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Stock quantity"><Input type="number" min={0} step="0.01" value={editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} /></Field>
-                <Field label="Minimum stock"><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} /></Field>
+                <Field label="Category"><Input value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="h-9" /></Field>
+                <Field label="Packing Unit"><Input value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} className="h-9" /></Field>
               </div>
-              <div className="grid grid-cols-1 gap-3">
-                <Field label="Default price (EGP)"><Input type="number" min={0} step="0.01" value={editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} /></Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Stock Quantity"><Input type="number" min={0} step="0.01" value={editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+                <Field label="Minimum Threshold"><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
               </div>
+              <Field label="Default price (EGP)"><Input type="number" min={0} step="0.01" value={editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={() => {
+            <DialogFooter className="mt-4 gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={() => {
                 if (!editing.name.trim() || !editing.sku.trim()) return toast.error("Name & SKU required");
-                db.upsertProduct(editing); toast.success("Saved"); setOpen(false);
-              }}>Save</Button>
+                db.upsertProduct(editing);
+                toast.success("Product saved successfully");
+                setOpen(false);
+              }}>Save product</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -116,5 +171,5 @@ function ProductsPage() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
+  return <div className="space-y-1"><Label className="text-slate-500">{label}</Label>{children}</div>;
 }

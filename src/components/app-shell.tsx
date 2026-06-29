@@ -1,18 +1,34 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard, FileText, Plus, Users, Package, UserCog,
   BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker, Warehouse,
+  Search, Bell, Sun, Moon, Star, ChevronLeft, ChevronRight, History,
+  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, useEffect } from "react";
 import type { Role } from "@/lib/types";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet";
+import { toast } from "sonner";
 
 interface NavItem {
   to: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: any;
   roles: Role[];
 }
 
@@ -29,33 +45,118 @@ const NAV: NavItem[] = [
   { to: "/settings", label: "Settings", icon: Settings, roles: ["admin"] },
 ];
 
+interface SysNotification {
+  id: string;
+  title: string;
+  desc: string;
+  time: string;
+  type: "success" | "warning" | "error" | "info";
+  read: boolean;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [historyList, setHistoryList] = useState<string[]>([]);
+  
+  // Clean, production-ready notification state starting with no notifications (or a system welcome for the first admin)
+  const [notifications, setNotifications] = useState<SysNotification[]>([]);
 
   if (!user) return null;
 
   const items = NAV.filter((n) => n.roles.includes(user.role));
 
+  // Initialize and track user navigation history
+  useEffect(() => {
+    const savedFavs = localStorage.getItem(`unichem-favs-${user.id}`);
+    if (savedFavs) setFavorites(JSON.parse(savedFavs));
+
+    const item = items.find((i) => i.to === pathname);
+    if (item) {
+      setHistoryList((prev) => {
+        const filtered = prev.filter((p) => p !== pathname);
+        const next = [pathname, ...filtered].slice(0, 5);
+        return next;
+      });
+    }
+  }, [pathname, user.id]);
+
+  // Handle Command + K global search keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handleLogout = () => {
     logout();
+    toast.success("Successfully logged out");
     navigate({ to: "/auth" });
   };
 
-  const Sidebar = (
-    <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
-        <div className="grid place-items-center h-9 w-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Beaker className="h-5 w-5" />
+  const toggleFavorite = (path: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path];
+      localStorage.setItem(`unichem-favs-${user.id}`, JSON.stringify(next));
+      toast.success(prev.includes(path) ? "Removed from Favorites" : "Added to Favorites");
+      return next;
+    });
+  };
+
+  const markAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    toast.success("All notifications marked as read");
+  };
+
+  const getBreadcrumbs = () => {
+    const parts = pathname.split("/").filter(Boolean);
+    return parts.map((part, idx) => {
+      const href = "/" + parts.slice(0, idx + 1).join("/");
+      const label = NAV.find((n) => n.to === href)?.label || part;
+      return { href, label };
+    });
+  };
+
+  const searchResults = items.filter((item) =>
+    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const SidebarContent = (
+    <div className="flex h-full flex-col bg-slate-900 text-slate-100 border-r border-slate-800 font-sans">
+      {/* Brand Header */}
+      <div className={cn("flex items-center gap-3 px-5 py-5 border-b border-slate-800 transition-all duration-300", sidebarCollapsed ? "justify-center px-2" : "")}>
+        <div className="grid place-items-center h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-yellow-500 shrink-0 shadow-lg">
+          <Beaker className="h-5 w-5 animate-pulse" />
         </div>
-        <div>
-          <div className="font-bold tracking-tight text-base">UniChem</div>
-          <div className="text-[11px] uppercase tracking-wider text-sidebar-foreground/60">Internal ERP</div>
-        </div>
+        {!sidebarCollapsed && (
+          <div>
+            <div className="font-extrabold tracking-tight text-base bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">UniChem</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Enterprise ERP</div>
+          </div>
+        )}
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+
+      {/* Main Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+        <div className={cn("text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider", sidebarCollapsed ? "text-center px-0 text-[8px]" : "")}>
+          {sidebarCollapsed ? "NAV" : "Core Functions"}
+        </div>
+        
         {items.map((item) => {
           const active = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
           const Icon = item.icon;
@@ -65,62 +166,321 @@ export function AppShell({ children }: { children: ReactNode }) {
               to={item.to}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                "group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
                 active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                  : "text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  ? "bg-indigo-600 text-white font-medium shadow-md shadow-indigo-600/20"
+                  : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <div className="flex items-center gap-3">
+                <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-slate-400 group-hover:text-white")} />
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </div>
+              {!sidebarCollapsed && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFavorite(item.to);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 hover:text-yellow-400 transition"
+                >
+                  <Star className={cn("h-3.5 w-3.5", favorites.includes(item.to) ? "fill-yellow-400 text-yellow-400" : "")} />
+                </button>
+              )}
             </Link>
           );
         })}
-      </nav>
-      <div className="border-t border-sidebar-border p-3">
-        <div className="px-2 py-2">
-          <div className="text-sm font-medium truncate">{user.name}</div>
-          <div className="text-xs text-sidebar-foreground/60 truncate">{user.email}</div>
-          <div className="mt-1 inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-sidebar-accent text-sidebar-accent-foreground">
-            {user.role}
+
+        {/* Favorites section in Sidebar */}
+        {!sidebarCollapsed && favorites.length > 0 && (
+          <div className="pt-6 border-t border-slate-800/80 mt-4 space-y-1">
+            <div className="text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider flex items-center gap-1.5">
+              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> Favorites
+            </div>
+            {favorites.map((fav) => {
+              const item = NAV.find((n) => n.to === fav);
+              if (!item) return null;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={fav}
+                  to={fav}
+                  className="flex items-center gap-3 px-3 py-1.5 rounded-md text-xs text-slate-400 hover:text-white hover:bg-slate-800/40"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </div>
+        )}
+      </nav>
+
+      {/* User Footer Profile & Theme Switch */}
+      <div className="border-t border-slate-800 p-4 bg-slate-950/40">
+        {!sidebarCollapsed && (
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-slate-800/30 p-2 border border-slate-800/40">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[11px] text-slate-400 font-semibold tracking-wide">SYSTEM OK</span>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              title="Toggle Theme"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-indigo-600/10 border border-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold uppercase shrink-0">
+            {user.name.slice(0, 2)}
+          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-200 truncate">{user.name}</div>
+              <div className="text-[10px] text-slate-500 truncate">{user.email}</div>
+            </div>
+          )}
+          {!sidebarCollapsed && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-white">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2" onClick={() => navigate({ to: "/settings" })}>
+                  <Settings2 className="h-4 w-4" /> Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Toggle Theme
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive gap-2 focus:bg-destructive/10" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <LogOut className="h-4 w-4 mr-2" /> Sign out
-        </Button>
       </div>
-    </aside>
+    </div>
   );
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <div className="hidden md:block">{Sidebar}</div>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="absolute left-0 top-0 h-full">{Sidebar}</div>
+    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
+      {/* Desktop Sidebar wrapper */}
+      <div className={cn("hidden md:block transition-all duration-300 shrink-0", sidebarCollapsed ? "w-16" : "w-64")}>
+        <div className="fixed top-0 bottom-0 z-20 h-full w-inherit">
+          {SidebarContent}
         </div>
-      )}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 border-b bg-card">
-          <button onClick={() => setMobileOpen((v) => !v)} className="p-2 -ml-2">
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="grid place-items-center h-7 w-7 rounded-md bg-primary text-primary-foreground">
-              <Beaker className="h-4 w-4" />
-            </div>
-            <span className="font-bold">UniChem</span>
-          </div>
-          <div className="w-9" />
-        </header>
-        <main className="flex-1 overflow-x-hidden">{children}</main>
       </div>
+
+      {/* Mobile Drawer */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="p-0 w-64 bg-slate-900 border-r border-slate-800">
+          <div className="h-full flex flex-col">{SidebarContent}</div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Panel */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Sticky Header */}
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            {/* Sidebar toggle triggers */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-2 -ml-2 text-slate-500 hover:text-slate-800 dark:hover:text-white md:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              className="hidden md:flex p-2 -ml-2 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+            >
+              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </button>
+
+            {/* Breadcrumbs */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+              <Link to="/dashboard" className="hover:text-slate-600 dark:hover:text-slate-300">UniChem</Link>
+              {getBreadcrumbs().map((b, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  <span>/</span>
+                  <Link to={b.href} className="font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white capitalize">
+                    {b.label}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Action Utilities */}
+          <div className="flex items-center gap-2">
+            {/* Global Search trigger */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden md:inline">Quick search...</span>
+              <kbd className="hidden md:inline-flex items-center gap-0.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">
+                <Command className="h-2.5 w-2.5" />K
+              </kbd>
+            </button>
+
+            {/* Notification system center */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="relative p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                  <Bell className="h-4.5 w-4.5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400 ring-2 ring-white dark:ring-slate-900" />
+                  )}
+                </button>
+              </SheetTrigger>
+              <SheetContent className="w-80 sm:w-96 p-0 dark:bg-slate-900">
+                <SheetHeader className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
+                  <SheetTitle className="text-sm font-bold flex items-center gap-2">
+                    <Bell className="h-4.5 w-4.5 text-indigo-500" /> Notifications
+                  </SheetTitle>
+                  {unreadCount > 0 && (
+                    <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs h-7 text-indigo-500">
+                      Mark all read
+                    </Button>
+                  )}
+                </SheetHeader>
+                <div className="overflow-y-auto h-[calc(100vh-60px)] divide-y divide-slate-100 dark:divide-slate-800">
+                  {notifications.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                      <CheckCircle2 className="h-10 w-10 text-slate-300 dark:text-slate-700 mb-2" />
+                      <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">Clean Slate</div>
+                      <div className="text-xs text-slate-400 mt-1">No alerts or messages to address. You are all set!</div>
+                    </div>
+                  ) : (
+                    notifications.map((n) => {
+                      const TypeIcon = {
+                        success: CheckCircle2,
+                        warning: AlertTriangle,
+                        error: AlertCircle,
+                        info: Sparkles
+                      }[n.type];
+                      return (
+                        <div key={n.id} className={cn("p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-indigo-50/20 dark:bg-indigo-950/10" : "")}>
+                          <div className={cn("mt-0.5 rounded-full p-1 h-7 w-7 grid place-items-center shrink-0", 
+                            n.type === "success" && "bg-emerald-500/10 text-emerald-500",
+                            n.type === "warning" && "bg-amber-500/10 text-amber-500",
+                            n.type === "error" && "bg-rose-500/10 text-rose-500",
+                            n.type === "info" && "bg-blue-500/10 text-blue-500"
+                          )}>
+                            <TypeIcon className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
+                              <span>{n.title}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">{n.time}</span>
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{n.desc}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-8 w-8 rounded-lg bg-indigo-600/10 border border-indigo-600/20 text-indigo-500 flex items-center justify-center font-bold uppercase transition hover:bg-indigo-600/20">
+                  {user.name.slice(0, 2)}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 font-sans">
+                <DropdownMenuLabel className="flex flex-col py-2 px-3">
+                  <span className="font-bold text-slate-900 dark:text-white truncate">{user.name}</span>
+                  <span className="text-xs text-slate-500 truncate">{user.email}</span>
+                  <span className="mt-1.5 self-start inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+                    {user.role}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2" onClick={() => navigate({ to: "/settings" })}>
+                  <Settings2 className="h-4 w-4 text-slate-400" /> System Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun className="h-4 w-4 text-slate-400" /> : <Moon className="h-4 w-4 text-slate-400" />} Theme Switcher
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive gap-2 focus:bg-destructive/10" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" /> Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </header>
+
+        {/* Page Content Panel */}
+        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60">
+          {children}
+        </main>
+      </div>
+
+      {/* Global Command Palette search Modal */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="sm:max-w-lg p-0 border border-slate-200 dark:border-slate-800 dark:bg-slate-900 overflow-hidden rounded-xl shadow-2xl">
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800">
+            <Search className="h-4.5 w-4.5 text-slate-400 shrink-0" />
+            <Input
+              type="text"
+              placeholder="Search ERP views or commands..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm h-auto bg-transparent flex-1 dark:text-white placeholder-slate-400"
+              autoFocus
+            />
+          </div>
+          <div className="max-h-72 overflow-y-auto py-2">
+            {searchResults.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-500">No results matching query.</div>
+            ) : (
+              searchResults.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.to}
+                    onClick={() => {
+                      navigate({ to: item.to });
+                      setSearchOpen(false);
+                      setSearchQuery("");
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-2 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="h-4 w-4 text-slate-400" />
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{item.label}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase font-mono">Navigate</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-4 py-2 text-[10px] text-slate-400 font-mono">
+            <span>Use ↑↓ to navigate, Enter to select</span>
+            <span>ESC to close</span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -129,12 +489,12 @@ export function PageHeader({
   title, description, actions,
 }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white md:text-3xl">{title}</h1>
+        {description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
     </div>
   );
 }
