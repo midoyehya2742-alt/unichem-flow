@@ -22,10 +22,10 @@ function AuthPage() {
 
   useEffect(() => { if (user) navigate({ to: "/dashboard", replace: true }); }, [user, navigate]);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const r = login(email.trim(), password);
+    const r = await login(email.trim(), password);
     setBusy(false);
     if (!r.ok) { toast.error(r.error ?? "Login failed"); return; }
     toast.success("Welcome back");

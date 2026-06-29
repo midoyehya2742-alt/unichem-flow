@@ -235,8 +235,8 @@ async function refreshInventory() {
   emit();
 }
 
-function remote(task: Promise<unknown>) {
-  task.catch((error) => {
+function remote(task: PromiseLike<unknown>) {
+  Promise.resolve(task).catch((error) => {
     console.error(error);
   }).finally(() => {
     refreshAll().catch(console.error);
