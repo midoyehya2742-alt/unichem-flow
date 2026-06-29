@@ -308,23 +308,23 @@ function InventoryPage() {
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent className="font-sans dark:bg-slate-900">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm font-bold text-slate-900 dark:text-white">Delete Product record</AlertDialogTitle>
+            <AlertDialogTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("inventory.delete_product_title")}</AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-slate-500">
-              Are you sure you want to permanently delete this product from the inventory ledger? This action cannot be undone.
+              {t("inventory.delete_product_confirm")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
-            <AlertDialogCancel className="text-xs">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="text-xs">{t("common.actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-rose-600 hover:bg-rose-700 text-xs text-white"
               onClick={() => {
                 if (!deleteTarget) return;
                 db.deleteProduct(deleteTarget.id);
-                toast.success("Product deleted");
+                toast.success(t("inventory.product_deleted"));
                 setDeleteTarget(null);
               }}
             >
-              Delete Product
+              {t("inventory.delete_product")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -391,9 +391,9 @@ function AdjustmentDialog({ product, actor, onClose }: { product: Product; actor
       : quantity;
 
   const save = () => {
-    if (quantity < 0) return toast.error("Quantity cannot be negative");
+    if (quantity < 0) return toast.error(t("inventory.qty_negative"));
     db.adjustInventory(product.id, preview, actor, mode, reason || undefined);
-    toast.success("Stock quantity adjusted");
+    toast.success(t("inventory.stock_adjusted"));
     onClose();
   };
 
@@ -405,14 +405,14 @@ function AdjustmentDialog({ product, actor, onClose }: { product: Product; actor
         </SheetHeader>
         <div className="space-y-4 py-6 text-xs overflow-y-auto">
           <div className="grid grid-cols-3 gap-2">
-            <Button type="button" variant={mode === "increase" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("increase")}><Plus className="h-3.5 w-3.5 ms-1" />Increase</Button>
-            <Button type="button" variant={mode === "decrease" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("decrease")}><Minus className="h-3.5 w-3.5 ms-1" />Decrease</Button>
-            <Button type="button" variant={mode === "correction" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("correction")}><RefreshCw className="h-3.5 w-3.5 ms-1" />Correct</Button>
+            <Button type="button" variant={mode === "increase" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("increase")}><Plus className="h-3.5 w-3.5 ms-1" />{t("inventory.increase")}</Button>
+            <Button type="button" variant={mode === "decrease" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("decrease")}><Minus className="h-3.5 w-3.5 ms-1" />{t("inventory.decrease")}</Button>
+            <Button type="button" variant={mode === "correction" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("correction")}><RefreshCw className="h-3.5 w-3.5 ms-1" />{t("inventory.correct")}</Button>
           </div>
           <div className="grid sm:grid-cols-2 gap-3 items-end">
-            <Field label={"Adjustment"}><Input type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} className="h-9" /></Field>
+            <Field label={t("inventory.adjustment")}><Input type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} className="h-9" /></Field>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-900/50">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase">Projected Balance</div>
+              <div className="text-[10px] font-semibold text-slate-400 uppercase">{t("inventory.projected_balance")}</div>
               <div className="text-base font-bold text-slate-850 dark:text-white mt-0.5">{formatNumber(preview)} {product.unit}</div>
             </div>
           </div>

@@ -200,8 +200,8 @@ function Dashboard() {
         <Card className="lg:col-span-2 shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
-              <CardTitle className="text-base font-bold">Revenue Timeline</CardTitle>
-              <CardDescription className="text-xs">7-day rolling sales totals (EGP)</CardDescription>
+              <CardTitle className="text-base font-bold">{t("dashboard.revenue_timeline")}</CardTitle>
+              <CardDescription className="text-xs">{t("dashboard.revenue_timeline_desc")}</CardDescription>
             </div>
             <BarChart2 className="h-4.5 w-4.5 text-slate-400" />
           </CardHeader>
@@ -219,7 +219,7 @@ function Dashboard() {
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} />
                 <Tooltip
                   contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [formatEGP(v), "Revenue"]}
+                  formatter={(v: number) => [formatEGP(v), t("dashboard.revenue")]}
                 />
                 <Area type="monotone" dataKey="total" stroke="rgb(79, 70, 229)" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
               </AreaChart>
@@ -230,12 +230,12 @@ function Dashboard() {
         {/* Pie Status Chart */}
         <Card className="shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base font-bold">Payment Allocation</CardTitle>
-            <CardDescription className="text-xs">Deals distribution by status</CardDescription>
+            <CardTitle className="text-base font-bold">{t("dashboard.payment_allocation")}</CardTitle>
+            <CardDescription className="text-xs">{t("dashboard.payment_allocation_desc")}</CardDescription>
           </CardHeader>
           <CardContent className="h-72 flex flex-col justify-between">
             {myDeals.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">No active pipelines.</div>
+              <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("dashboard.no_active_pipelines")}</div>
             ) : (
               <div className="relative w-full h-full">
                 <ResponsiveContainer width="100%" height="80%">
@@ -268,7 +268,7 @@ function Dashboard() {
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
               <CardTitle className="text-base font-bold">{t("dashboard.recent_deals")}</CardTitle>
-              <CardDescription className="text-xs">Latest submissions and payment tracking</CardDescription>
+              <CardDescription className="text-xs">{t("dashboard.recent_deals_desc")}</CardDescription>
             </div>
             <Link to="/deals">
               <Button variant="ghost" size="sm" className="text-xs text-indigo-500 hover:text-indigo-600">
@@ -280,10 +280,10 @@ function Dashboard() {
             {myDeals.length === 0 ? (
               <div className="text-center py-10 text-xs text-slate-400 flex flex-col items-center gap-2">
                 <ShoppingBag className="h-8 w-8 text-slate-300 dark:text-slate-700" />
-                <span>No deals submitted yet. Start by generating a transaction.</span>
+                <span>{t("dashboard.no_deals_yet")}</span>
                 {(user?.role === "salesman" || user?.role === "admin") && (
                   <Link to="/deals/new" className="mt-2">
-                    <Button size="sm">Create First Deal</Button>
+                    <Button size="sm">{t("dashboard.create_first_deal")}</Button>
                   </Link>
                 )}
               </div>
@@ -298,7 +298,7 @@ function Dashboard() {
                     >
                       <div className="min-w-0">
                         <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{d.reference} · {d.customerName}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">Assigned: {d.salesmanName} · {new Date(d.dealDate).toLocaleDateString()}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{t("dashboard.assigned")}: {d.salesmanName} · {new Date(d.dealDate).toLocaleDateString()}</div>
                       </div>
                       <div className="text-right ms-4">
                         <div className="font-bold text-xs text-slate-800 dark:text-slate-200">{formatEGP(d.total)}</div>
@@ -319,7 +319,7 @@ function Dashboard() {
           <Card className="shadow-sm border-slate-200 dark:border-slate-800">
             <CardHeader>
               <CardTitle className="text-base font-bold">{t("dashboard.quick_actions")}</CardTitle>
-              <CardDescription className="text-xs">Perform routine tasks immediately</CardDescription>
+              <CardDescription className="text-xs">{t("dashboard.quick_actions_desc")}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               {(user?.role === "salesman" || user?.role === "admin") && (
@@ -367,17 +367,17 @@ function Dashboard() {
             </CardHeader>
             <CardContent className="text-xs space-y-3">
               <div>
-                <span className="text-slate-400">Current Role: </span>
-                <span className="font-bold text-white capitalize">{user.role}</span>
+                <span className="text-slate-400">{t("dashboard.current_role")}: </span>
+                <span className="font-bold text-white capitalize">{user?.role}</span>
               </div>
-              
-              {user.role === "salesman" ? (
+
+              {user?.role === "salesman" ? (
                 <div className="space-y-2">
-                  <div>Pipeline conversion status is active. Add transactions via the side panel to update finance ledger logs.</div>
+                  <div>{t("dashboard.pipeline_active")}</div>
                   <div className="pt-2">
                     <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                      <span>Monthly pipeline target</span>
-                      <span>{formatNumber(myDeals.length)} / 10 deals</span>
+                      <span>{t("dashboard.monthly_target")}</span>
+                      <span>{t("dashboard.deals_target", { count: myDeals.length })}</span>
                     </div>
                     <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                       <div className="bg-indigo-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, (myDeals.length / 10) * 100)}%` }} />
@@ -387,16 +387,16 @@ function Dashboard() {
               ) : (
                 <div className="space-y-1 text-slate-300">
                   <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Products in catalog:</span>
+                    <span>{t("dashboard.products_in_catalog")}:</span>
                     <span className="font-bold text-white">{products.length}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-white/5">
-                    <span>Active Customers:</span>
+                    <span>{t("dashboard.active_customers")}:</span>
                     <span className="font-bold text-white">{customers.length}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span>Global Movements log:</span>
-                    <span className="font-bold text-white">{movements.length} logged</span>
+                    <span>{t("dashboard.global_movements")}:</span>
+                    <span className="font-bold text-white">{t("dashboard.movements_logged", { count: movements.length })}</span>
                   </div>
                 </div>
               )}

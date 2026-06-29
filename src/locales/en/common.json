@@ -28,7 +28,24 @@
     "payment_allocation": "Payment Allocation",
     "recent_deals": "Recent Deal Workflows",
     "quick_actions": "Quick Actions",
-    "role_summary": "Role Summary"
+    "role_summary": "Role Summary",
+    "revenue_timeline_desc": "7-day rolling sales totals (EGP)",
+    "revenue": "Revenue",
+    "payment_allocation_desc": "Deals distribution by status",
+    "no_active_pipelines": "No active pipelines.",
+    "recent_deals_desc": "Latest submissions and payment tracking",
+    "no_deals_yet": "No deals submitted yet. Start by generating a transaction.",
+    "create_first_deal": "Create First Deal",
+    "assigned": "Assigned",
+    "quick_actions_desc": "Perform routine tasks immediately",
+    "current_role": "Current Role",
+    "pipeline_active": "Pipeline conversion status is active. Add transactions via the side panel to update finance ledger logs.",
+    "monthly_target": "Monthly pipeline target",
+    "deals_target": "{{count}} / 10 deals",
+    "products_in_catalog": "Products in catalog",
+    "active_customers": "Active Customers",
+    "global_movements": "Global Movements log",
+    "movements_logged": "{{count}} logged"
   },
   "common": {
     "search": "Search...",
@@ -99,7 +116,18 @@
     "add_first": "Add First Product",
     "edit_profile": "Edit product profile",
     "create_record": "Create product record",
-    "updated": "Product record updated"
+    "updated": "Product record updated",
+    "delete_product_title": "Delete Product record",
+    "delete_product_confirm": "Are you sure you want to permanently delete this product from the inventory ledger? This action cannot be undone.",
+    "delete_product": "Delete Product",
+    "product_deleted": "Product deleted",
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "correct": "Correct",
+    "adjustment": "Adjustment",
+    "projected_balance": "Projected Balance",
+    "qty_negative": "Quantity cannot be negative",
+    "stock_adjusted": "Stock quantity adjusted"
   },
   "customers": {
     "desc": "Maintain client accounts, corporate billing records, and directory contact details.",
@@ -362,5 +390,6 @@
     "gov_desc": "Settings configured on this screen affect tax estimates and title configurations for all connected active users immediately. Modify parameters with care."
   },
   "no_results": "No data to display",
-  "showing_rows": "Showing {{count}} rows"
+  "showing_rows": "Showing {{count}} rows",
+  "no_match_filters": "We couldn't find anything matching your current filters or search terms."
 }

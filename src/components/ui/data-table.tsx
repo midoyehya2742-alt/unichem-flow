@@ -138,7 +138,7 @@ export function DataTable<TData, TValue>({
                       <Inbox className="h-6 w-6 text-slate-400" />
                     </div>
                     <p className="font-semibold text-slate-700 dark:text-slate-300">{t("no_results", "No data to display")}</p>
-                    <p className="text-xs text-slate-400 max-w-xs">We couldn't find anything matching your current filters or search terms.</p>
+                    <p className="text-xs text-slate-400 max-w-xs">{t("no_match_filters", "We couldn't find anything matching your current filters or search terms.")}</p>
                   </div>
                 </TableCell>
               </TableRow>
