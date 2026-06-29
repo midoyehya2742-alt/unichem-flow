@@ -3,7 +3,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
 import { newId, nowIso, useDb } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Printer, Paperclip, Send, Clock, CheckCircle2, AlertTriangle, MessageSquare, TrendingUp } from "lucide-react";
+import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, AlertTriangle, MessageSquare, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
 import type { PaymentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/deals/$id")({
   head: () => ({ meta: [{ title: "Deal Details — UniChem ERP" }] }),
@@ -30,6 +31,7 @@ function DealDetails() {
   const db = useDb();
   const navigate = useNavigate();
   const deal = db.getDeal(id);
+  const { t } = useTranslation("common");
 
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(deal?.paymentStatus ?? "unpaid");
   const [amountPaid, setAmountPaid] = useState<number>(deal?.amountPaid ?? 0);
@@ -39,10 +41,10 @@ function DealDetails() {
     return (
       <div className="p-8 text-center max-w-md mx-auto space-y-4">
         <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
-        <h2 className="text-base font-bold text-slate-800 dark:text-white">Transaction not found</h2>
-        <p className="text-xs text-slate-500">The requested deal code is either archived or invalid.</p>
+        <h2 className="text-base font-bold text-slate-800 dark:text-white">{t("deals.not_found_title")}</h2>
+        <p className="text-xs text-slate-500">{t("deals.not_found_desc")}</p>
         <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: "/deals" })}>
-          Back to Deals Ledger
+          {t("deals.back_to_ledger")}
         </Button>
       </div>
     );
@@ -53,7 +55,7 @@ function DealDetails() {
   const savePayment = () => {
     if (!user) return;
     db.updateDeal({ ...deal, paymentStatus, amountPaid }, user);
-    toast.success("Payment status ledger synchronized successfully!");
+    toast.success(t("deals.payment_saved"));
   };
 
   const addNote = () => {
@@ -67,14 +69,14 @@ function DealDetails() {
     };
     db.updateDeal(updated, user);
     setNoteText("");
-    toast.success("Audit note added to transaction history");
+    toast.success(t("deals.note_added"));
   };
 
   // Timeline Step Tracker
   const steps = [
-    { key: "unpaid", label: "Unpaid / Pending Audit", desc: "Deal recorded, awaiting transaction slip verification." },
-    { key: "partial", label: "Partially Settled", desc: "Down payment processed, balance remaining." },
-    { key: "paid", label: "Fully Cleared", desc: "All funds deposited and ledger entry finalized." }
+    { key: "unpaid", label: t("deals.step_unpaid_label"), desc: t("deals.step_unpaid_desc") },
+    { key: "partial", label: t("deals.step_partial_label"), desc: t("deals.step_partial_desc") },
+    { key: "paid", label: t("deals.step_paid_label"), desc: t("deals.step_paid_desc") }
   ];
   const activeStepIdx = steps.findIndex((s) => s.key === deal.paymentStatus);
 
@@ -83,16 +85,16 @@ function DealDetails() {
       {/* Back & Actions header */}
       <div className="flex items-center justify-between print:hidden">
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/deals" })} className="text-slate-500 hover:text-slate-800">
-          <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Ledger
+          <ArrowLeft className="h-4 w-4 me-1.5 rtl:rotate-180" /> {t("deals.back_to_ledger")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 text-xs">
-          <Printer className="h-4 w-4 mr-2 text-slate-500" /> Print invoice
+          <Printer className="h-4 w-4 me-2 text-slate-500" /> {t("common.actions.print_invoice")}
         </Button>
       </div>
 
       <PageHeader
         title={deal.reference}
-        description={`Submitted by ${deal.salesmanName} on ${new Date(deal.dealDate).toLocaleDateString()}`}
+        description={t("deals.submitted_by", { name: deal.salesmanName, date: new Date(deal.dealDate).toLocaleDateString() })}
       />
 
       {/* Modern Pipeline Timeline Stepper */}
@@ -130,17 +132,17 @@ function DealDetails() {
           {/* Line Items Table */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold">Portioned Products Summary</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.products_summary")}</CardTitle>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500">
-                  <tr className="text-left font-semibold">
-                    <th className="px-5 py-3">Product Catalog Item</th>
-                    <th className="px-5 py-3 text-right">Quantity</th>
-                    <th className="px-5 py-3 text-right">Price per Unit</th>
-                    <th className="px-5 py-3 text-right">Discount</th>
-                    <th className="px-5 py-3 text-right">Subtotal</th>
+                  <tr className="text-start font-semibold">
+                    <th className="px-5 py-3 text-start">{t("deals.product_item")}</th>
+                    <th className="px-5 py-3 text-end">{t("deals.quantity")}</th>
+                    <th className="px-5 py-3 text-end">{t("deals.price_per_unit")}</th>
+                    <th className="px-5 py-3 text-end">{t("deals.discount")}</th>
+                    <th className="px-5 py-3 text-end">{t("deals.subtotal")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -159,20 +161,20 @@ function DealDetails() {
                 </tbody>
                 <tfoot className="border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 text-slate-500">
                   <tr>
-                    <td colSpan={4} className="px-5 py-2.5 text-right font-medium">Subtotal</td>
-                    <td className="px-5 py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">{formatEGP(deal.subtotal)}</td>
+                    <td colSpan={4} className="px-5 py-2.5 text-end font-medium">{t("deals.subtotal")}</td>
+                    <td className="px-5 py-2.5 text-end font-semibold text-slate-800 dark:text-slate-200">{formatEGP(deal.subtotal)}</td>
                   </tr>
                   <tr>
-                    <td colSpan={4} className="px-5 py-2.5 text-right font-medium">Overall Discount</td>
-                    <td className="px-5 py-2.5 text-right text-rose-500">{deal.discount}%</td>
+                    <td colSpan={4} className="px-5 py-2.5 text-end font-medium">{t("deals.overall_discount")}</td>
+                    <td className="px-5 py-2.5 text-end text-rose-500">{deal.discount}%</td>
                   </tr>
                   <tr>
-                    <td colSpan={4} className="px-5 py-2.5 text-right font-medium">Taxation Rate</td>
-                    <td className="px-5 py-2.5 text-right">{deal.tax}%</td>
+                    <td colSpan={4} className="px-5 py-2.5 text-end font-medium">{t("deals.tax_rate")}</td>
+                    <td className="px-5 py-2.5 text-end">{deal.tax}%</td>
                   </tr>
                   <tr className="border-t border-slate-200 dark:border-slate-850">
-                    <td colSpan={4} className="px-5 py-3 text-right font-bold text-slate-900 dark:text-white">Cleared Total</td>
-                    <td className="px-5 py-3 text-right font-black text-sm text-indigo-600 dark:text-indigo-400">{formatEGP(deal.total)}</td>
+                    <td colSpan={4} className="px-5 py-3 text-end font-bold text-slate-900 dark:text-white">{t("deals.cleared_total")}</td>
+                    <td className="px-5 py-3 text-end font-black text-sm text-indigo-600 dark:text-indigo-400">{formatEGP(deal.total)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -183,7 +185,7 @@ function DealDetails() {
           {deal.notes && (
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold">Salesman Remarks</CardTitle>
+                <CardTitle className="text-sm font-bold">{t("deals.salesman_remarks")}</CardTitle>
               </CardHeader>
               <CardContent className="text-xs whitespace-pre-wrap text-slate-600 dark:text-slate-400 leading-relaxed">
                 {deal.notes}
@@ -195,7 +197,7 @@ function DealDetails() {
           {deal.attachments && deal.attachments.length > 0 && (
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">Transaction files</CardTitle>
+                <CardTitle className="text-sm font-bold">{t("deals.transaction_files")}</CardTitle>
               </CardHeader>
               <CardContent className="grid sm:grid-cols-2 gap-3">
                 {deal.attachments.map((a) => (
@@ -222,20 +224,20 @@ function DealDetails() {
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                <MessageSquare className="h-4 w-4 text-indigo-500" /> Audit Log & Finance Comments
+                <MessageSquare className="h-4 w-4 text-indigo-500" /> {t("deals.audit_log")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {deal.financeNotes.length === 0 ? (
-                <div className="text-xs text-slate-400 dark:text-slate-500 py-2">No finance notes logged on this transaction.</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500 py-2">{t("deals.no_finance_notes")}</div>
               ) : (
                 <div className="space-y-3">
                   {deal.financeNotes.map((n) => (
-                    <div key={n.id} className="flex gap-3 items-start border-l-2 border-indigo-500 pl-3.5 py-1">
+                    <div key={n.id} className="flex gap-3 items-start border-s-2 border-indigo-500 ps-3.5 py-1">
                       <div className="flex-1">
                         <div className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">{n.text}</div>
                         <div className="text-[10px] text-slate-400 mt-1">
-                          By <span className="font-bold text-slate-500">{n.authorName}</span> · {formatDateTime(n.createdAt)}
+                          {t("deals.note_by", { author: n.authorName })} · {formatDateTime(n.createdAt)}
                         </div>
                       </div>
                     </div>
@@ -247,13 +249,13 @@ function DealDetails() {
                 <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <Textarea
                     rows={2}
-                    placeholder="Type comments or audit updates here..."
+                    placeholder={t("deals.type_comments")}
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     className="text-xs focus-visible:ring-indigo-500 placeholder-slate-400 resize-none"
                   />
                   <Button size="sm" onClick={addNote} className="h-8 text-xs">
-                    <Send className="h-3 w-3 mr-1.5" /> Post Comment
+                    <Send className="h-3 w-3 me-1.5 rtl:rotate-180" /> {t("deals.post_comment")}
                   </Button>
                 </div>
               )}
@@ -265,21 +267,21 @@ function DealDetails() {
         <div className="space-y-4">
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/85">
-              <CardTitle className="text-sm font-bold">Ledger Information</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.ledger_info")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-4 text-xs">
-              <Row label="Deal Ref" value={<span className="font-bold text-slate-850 dark:text-white">{deal.reference}</span>} />
-              <Row label="Client Account" value={<span className="font-semibold text-slate-850 dark:text-white">{deal.customerName}</span>} />
-              <Row label="Sales Agent" value={deal.salesmanName} />
-              <Row label="Created on" value={formatDateTime(deal.dealDate)} />
-              {deal.expectedPaymentDate && <Row label="Payment Target" value={formatDateTime(deal.expectedPaymentDate)} />}
-              <Row label="Invoice Total" value={<span className="font-bold text-indigo-600 dark:text-indigo-400">{formatEGP(deal.total)}</span>} />
-              <Row label="Collected Total" value={<span className="font-bold text-emerald-600 dark:text-emerald-400">{formatEGP(deal.amountPaid)}</span>} />
+              <Row label={t("deals.deal_ref")} value={<span className="font-bold text-slate-850 dark:text-white">{deal.reference}</span>} />
+              <Row label={t("deals.client_account")} value={<span className="font-semibold text-slate-850 dark:text-white">{deal.customerName}</span>} />
+              <Row label={t("deals.sales_agent")} value={deal.salesmanName} />
+              <Row label={t("deals.created_on")} value={formatDateTime(deal.dealDate)} />
+              {deal.expectedPaymentDate && <Row label={t("deals.payment_target")} value={formatDateTime(deal.expectedPaymentDate)} />}
+              <Row label={t("deals.invoice_total")} value={<span className="font-bold text-indigo-600 dark:text-indigo-400">{formatEGP(deal.total)}</span>} />
+              <Row label={t("deals.collected_total")} value={<span className="font-bold text-emerald-600 dark:text-emerald-400">{formatEGP(deal.amountPaid)}</span>} />
               <Row
-                label="Clearing Status"
+                label={t("deals.clearing_status")}
                 value={
                   <Badge variant={deal.paymentStatus === "paid" ? "default" : deal.paymentStatus === "partial" ? "secondary" : "destructive"} className="text-[10px] px-2">
-                    {deal.paymentStatus}
+                    {t(`deals.payment_status.${deal.paymentStatus}`)}
                   </Badge>
                 }
               />
@@ -291,25 +293,25 @@ function DealDetails() {
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                  <TrendingUp className="h-4 w-4 text-emerald-500" /> Settle Transaction
+                  <TrendingUp className="h-4 w-4 text-emerald-500" /> {t("deals.settle_transaction")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-1">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-slate-500">Status</Label>
+                  <Label className="text-[10px] font-semibold text-slate-500">{t("deals.status")}</Label>
                   <Select value={paymentStatus} onValueChange={(v: PaymentStatus) => setPaymentStatus(v)}>
                     <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unpaid">Unpaid / Pending</SelectItem>
-                      <SelectItem value="partial">Partially Paid</SelectItem>
-                      <SelectItem value="paid">Fully Settled</SelectItem>
+                      <SelectItem value="unpaid">{t("deals.payment_status.unpaid")}</SelectItem>
+                      <SelectItem value="partial">{t("deals.payment_status.partial")}</SelectItem>
+                      <SelectItem value="paid">{t("deals.payment_status.paid")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-slate-500">Receipt Deposit (EGP)</Label>
+                  <Label className="text-[10px] font-semibold text-slate-500">{t("deals.receipt_deposit")}</Label>
                   <Input
                     type="number"
                     min={0}
@@ -320,7 +322,7 @@ function DealDetails() {
                   />
                 </div>
                 <Button className="w-full h-9 text-xs shadow-md shadow-emerald-500/10" onClick={savePayment}>
-                  Commit Settlement
+                  {t("deals.commit_settlement")}
                 </Button>
               </CardContent>
             </Card>

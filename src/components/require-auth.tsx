@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { AppShell } from "./app-shell";
 import type { Role } from "@/lib/types";
+import { LoaderScreen } from "@/components/ui/loader-screen";
 
 export function RequireAuth({ children, roles }: { children: ReactNode; roles?: Role[] }) {
   const { user, loading } = useAuth();
@@ -18,11 +19,7 @@ export function RequireAuth({ children, roles }: { children: ReactNode; roles?: 
   }, [user, loading, navigate, roles]);
 
   if (loading || !user) {
-    return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground text-sm">
-        Loading…
-      </div>
-    );
+    return <LoaderScreen />;
   }
   if (roles && !roles.includes(user.role)) return null;
   return <AppShell>{children}</AppShell>;

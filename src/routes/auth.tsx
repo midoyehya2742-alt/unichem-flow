@@ -174,12 +174,8 @@ function AuthPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(234,179,8,0.05),transparent_40%)]" />
 
         <div className="flex items-center gap-3 relative z-10">
-          <div className="grid place-items-center h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-md text-yellow-500">
-            <Beaker className="h-6 w-6 animate-pulse" />
-          </div>
-          <div>
-            <div className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">UniChem</div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">Enterprise Unified Platform</div>
+          <div className="bg-white/80 dark:bg-white p-2 rounded-xl backdrop-blur-md inline-block">
+            <img src="/logo-full.png" alt="UniChem" className="h-16 w-auto object-contain" />
           </div>
         </div>
 
@@ -219,10 +215,7 @@ function AuthPage() {
       <div className="lg:col-span-5 xl:col-span-4 flex items-center justify-center p-6 sm:p-12 md:bg-white dark:md:bg-slate-900 border-l border-slate-100 dark:border-slate-800">
         <div className="w-full max-w-md space-y-6">
           <div className="lg:hidden flex items-center gap-3 justify-center mb-6">
-            <div className="grid place-items-center h-10 w-10 rounded-lg bg-indigo-600 text-yellow-500">
-              <Beaker className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-xl dark:text-white">UniChem ERP</span>
+            <img src="/logo-full.png" alt="UniChem" className="h-12 w-auto object-contain" />
           </div>
 
           <Card className="border-0 shadow-none md:shadow-lg md:border dark:bg-slate-900/50">

@@ -12,21 +12,40 @@ import {
   Plus, TrendingUp, Wallet, FileText, Clock, CheckCircle2, AlertTriangle, Users,
   ArrowRight, ShieldCheck, ShoppingBag, Package, Sparkles, BarChart2, Zap
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, Legend, BarChart, Bar,
 } from "recharts";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { motion } from "framer-motion";
+import { PageTransition } from "@/components/ui/page-transition";
+import { KpiCard } from "@/components/ui/kpi-card";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — UniChem ERP" }] }),
   component: () => <RequireAuth><Dashboard /></RequireAuth>,
 });
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
+
 function Dashboard() {
   const { user } = useAuth();
   const db = useDb();
   const [loading, setLoading] = useState(true);
+  const { t } = useTranslation("common");
 
   // Simulate premium skeleton loader
   useEffect(() => {
@@ -92,20 +111,20 @@ function Dashboard() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
+    <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
       <PageHeader
-        title={`Welcome, ${user?.name.split(" ")[0]}`}
+        title={t("dashboard.welcome", { name: user?.name.split(" ")[0] })}
         description={
-          user?.role === "salesman" ? "Here is your personal pipeline overview."
-            : user?.role === "finance" ? "Unified company cashflow, payments, and invoices."
-              : "Complete system controls and administrative activities."
+          user?.role === "salesman" ? t("dashboard.desc_sales")
+            : user?.role === "finance" ? t("dashboard.desc_finance")
+              : t("dashboard.desc_admin")
         }
         actions={
           <div className="flex gap-2">
             {(user?.role === "salesman" || user?.role === "admin") && (
               <Link to="/deals/new">
                 <Button className="shadow-lg shadow-indigo-600/10">
-                  <Plus className="h-4 w-4 mr-2" /> New Deal
+                  <Plus className="h-4 w-4 ms-2" /> {t("dashboard.new_deal")}
                 </Button>
               </Link>
             )}
@@ -119,48 +138,61 @@ function Dashboard() {
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
             <div className="text-xs">
-              <span className="font-bold">Inventory Alert:</span> {lowStockProducts.length} chemical items are at or below minimum reserve thresholds.
+              <span className="font-bold">{t("dashboard.inventory_alert")}</span> {t("dashboard.low_stock_msg", { count: lowStockProducts.length })}
             </div>
           </div>
           <Link to="/inventory">
             <Button size="sm" variant="outline" className="text-xs h-8 border-amber-500/30 hover:bg-amber-500/20">
-              Audit Stock
+              {t("dashboard.audit_stock")}
             </Button>
           </Link>
         </div>
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          icon={FileText}
-          label="Total Deals"
-          value={formatNumber(myDeals.length)}
-          sub="Submitted to console"
-          tone="primary"
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label="Total Pipeline"
-          value={formatEGP(total)}
-          sub="Sum of deal values"
-          tone="primary"
-        />
-        <KpiCard
-          icon={Wallet}
-          label="Collected Cash"
-          value={formatEGP(paid)}
-          sub="Total validated receipts"
-          tone="success"
-        />
-        <KpiCard
-          icon={Clock}
-          label="Outstanding"
-          value={formatEGP(outstanding)}
-          sub={`${pending} open requests`}
-          tone={outstanding > 0 ? "warning" : "muted"}
-        />
-      </div>
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={FileText}
+            label={t("dashboard.total_deals")}
+            value={formatNumber(myDeals.length)}
+            sub="Submitted to console"
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={TrendingUp}
+            label={t("dashboard.total_pipeline")}
+            value={formatEGP(total)}
+            sub="Sum of deal values"
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={Wallet}
+            label={t("dashboard.collected_cash")}
+            value={formatEGP(paid)}
+            sub="Total validated receipts"
+            tone="success"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={Clock}
+            label={t("dashboard.outstanding")}
+            value={formatEGP(outstanding)}
+            sub={`${pending} open requests`}
+            tone={outstanding > 0 ? "warning" : "muted"}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Charts Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -235,12 +267,12 @@ function Dashboard() {
         <Card className="lg:col-span-2 shadow-sm border-slate-200 dark:border-slate-800">
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
-              <CardTitle className="text-base font-bold">Recent Deal Workflows</CardTitle>
+              <CardTitle className="text-base font-bold">{t("dashboard.recent_deals")}</CardTitle>
               <CardDescription className="text-xs">Latest submissions and payment tracking</CardDescription>
             </div>
             <Link to="/deals">
               <Button variant="ghost" size="sm" className="text-xs text-indigo-500 hover:text-indigo-600">
-                View all <ArrowRight className="h-3 w-3 ml-1" />
+                {t("common.view_all")} <ArrowRight className="h-3 w-3 ms-1 rtl:rotate-180" />
               </Button>
             </Link>
           </CardHeader>
@@ -256,27 +288,28 @@ function Dashboard() {
                 )}
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              <motion.div variants={containerVariants} initial="hidden" animate="show" className="divide-y divide-slate-100 dark:divide-slate-800">
                 {myDeals.slice(0, 5).map((d) => (
-                  <Link
-                    key={d.id}
-                    to="/deals/$id"
-                    params={{ id: d.id }}
-                    className="flex items-center justify-between py-3 hover:bg-slate-100/40 dark:hover:bg-slate-800/20 px-2 rounded-lg transition"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{d.reference} · {d.customerName}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">Assigned: {d.salesmanName} · {new Date(d.dealDate).toLocaleDateString()}</div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className="font-bold text-xs text-slate-800 dark:text-slate-200">{formatEGP(d.total)}</div>
-                      <Badge variant={d.paymentStatus === "paid" ? "default" : d.paymentStatus === "partial" ? "secondary" : "destructive"} className="text-[9px] px-1 py-0 h-4 mt-0.5">
-                        {d.paymentStatus}
-                      </Badge>
-                    </div>
-                  </Link>
+                  <motion.div variants={itemVariants} key={d.id}>
+                    <Link
+                      to="/deals/$id"
+                      params={{ id: d.id }}
+                      className="flex items-center justify-between py-3 hover:bg-slate-100/40 dark:hover:bg-slate-800/20 px-2 rounded-lg transition"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">{d.reference} · {d.customerName}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">Assigned: {d.salesmanName} · {new Date(d.dealDate).toLocaleDateString()}</div>
+                      </div>
+                      <div className="text-right ms-4">
+                        <div className="font-bold text-xs text-slate-800 dark:text-slate-200">{formatEGP(d.total)}</div>
+                        <Badge variant={d.paymentStatus === "paid" ? "default" : d.paymentStatus === "partial" ? "secondary" : "destructive"} className="text-[9px] px-1 py-0 h-4 mt-0.5">
+                          {t(`common.status.${d.paymentStatus}`)}
+                        </Badge>
+                      </div>
+                    </Link>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
           </CardContent>
         </Card>
@@ -285,7 +318,7 @@ function Dashboard() {
         <div className="space-y-6">
           <Card className="shadow-sm border-slate-200 dark:border-slate-800">
             <CardHeader>
-              <CardTitle className="text-base font-bold">Quick Actions</CardTitle>
+              <CardTitle className="text-base font-bold">{t("dashboard.quick_actions")}</CardTitle>
               <CardDescription className="text-xs">Perform routine tasks immediately</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
@@ -293,7 +326,7 @@ function Dashboard() {
                 <Link to="/deals/new" className="w-full">
                   <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-xs justify-center items-center">
                     <Plus className="h-4.5 w-4.5 text-indigo-500" />
-                    <span>New Deal</span>
+                    <span>{t("dashboard.new_deal")}</span>
                   </Button>
                 </Link>
               )}
@@ -301,21 +334,21 @@ function Dashboard() {
                 <Link to="/inventory" className="w-full">
                   <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-xs justify-center items-center">
                     <Package className="h-4.5 w-4.5 text-emerald-500" />
-                    <span>Inventory</span>
+                    <span>{t("nav.inventory")}</span>
                   </Button>
                 </Link>
               )}
               <Link to="/customers" className="w-full">
                 <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-xs justify-center items-center">
                   <Users className="h-4.5 w-4.5 text-blue-500" />
-                  <span>Customers</span>
+                  <span>{t("nav.customers")}</span>
                 </Button>
               </Link>
               {(user?.role === "admin" || user?.role === "finance") && (
                 <Link to="/reports" className="w-full">
                   <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-xs justify-center items-center">
                     <BarChart2 className="h-4.5 w-4.5 text-indigo-500" />
-                    <span>Reports</span>
+                    <span>{t("nav.reports")}</span>
                   </Button>
                 </Link>
               )}
@@ -329,7 +362,7 @@ function Dashboard() {
             </div>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold flex items-center gap-1.5 text-yellow-500">
-                <Sparkles className="h-4 w-4" /> Role Summary
+                <Sparkles className="h-4 w-4" /> {t("dashboard.role_summary")}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs space-y-3">
@@ -371,7 +404,7 @@ function Dashboard() {
           </Card>
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }
 

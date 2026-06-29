@@ -46,7 +46,7 @@ const fromProfile = (r: any): User => ({
   id: r.id,
   email: r.email || "",
   name: r.name,
-  role: r.user_roles?.[0]?.role || "salesman",
+  role: r.role || "salesman",
   phone: r.phone ?? undefined,
   active: r.active,
   createdAt: r.created_at,
@@ -56,6 +56,7 @@ const toProfile = (u: User) => ({
   id: u.id,
   email: u.email,
   name: u.name,
+  role: u.role,
   phone: u.phone ?? null,
   active: u.active,
   created_at: u.createdAt,
@@ -199,7 +200,7 @@ const fromSettings = (r: any): CompanySettings => ({
 
 async function refreshAll() {
   const [usersRes, customersRes, productsRes, dealsRes, movementsRes, auditRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("*, user_roles(role)").order("created_at", { ascending: true }),
+    supabase.from("profiles").select("*").order("created_at", { ascending: true }),
     supabase.from("customers").select("*").order("name", { ascending: true }),
     supabase.from("products").select("*").order("name", { ascending: true }),
     supabase.from("deals").select("*, finance_notes(*), deal_attachments(*)").order("created_at", { ascending: false }),
@@ -235,8 +236,8 @@ async function refreshInventory() {
   emit();
 }
 
-function remote(task: Promise<unknown>) {
-  task.catch((error) => {
+function remote(task: PromiseLike<unknown>) {
+  Promise.resolve(task).catch((error) => {
     console.error(error);
   }).finally(() => {
     refreshAll().catch(console.error);
@@ -259,25 +260,32 @@ export const store = {
   },
   
   listUsers: () => db.users,
-  upsertUser(u: User, password?: string) {
+  upsertUser(u: User, password?: string): Promise<void> | undefined {
     const exists = db.users.some((x) => x.id === u.id);
+    if (password && !exists) {
+      // New user: don't optimistically add (server assigns the real UUID); return a
+      // promise so the caller can await and surface any error to the user.
+      return (async () => {
+        const { error } = await supabase.rpc("create_app_user", {
+          p_email: u.email,
+          p_password: password,
+          p_name: u.name,
+          p_role: u.role,
+          p_phone: u.phone ?? null,
+          p_department: null,
+          p_active: u.active,
+        });
+        if (error) throw new Error(error.message);
+        await refreshAll();
+      })();
+    }
     db.users = exists ? db.users.map((x) => (x.id === u.id ? u : x)) : [...db.users, u];
     emit();
-    if (password && !exists) {
-      remote(supabase.rpc("create_app_user", {
-        p_email: u.email,
-        p_password: password,
-        p_name: u.name,
-        p_role: u.role,
-        p_phone: u.phone ?? null,
-        p_active: u.active,
-      }));
-    } else {
-      remote(Promise.all([
-        supabase.from("profiles").upsert(toProfile(u)),
-        supabase.from("user_roles").upsert({ user_id: u.id, role: u.role }, { onConflict: "user_id, role" })
-      ]));
-    }
+    remote((async () => {
+      await supabase.from("profiles").upsert(toProfile(u));
+      await supabase.from("user_roles").delete().eq("user_id", u.id);
+      await supabase.from("user_roles").insert({ user_id: u.id, role: u.role });
+    })());
   },
   deleteUser(id: string) {
     db.users = db.users.filter((u) => u.id !== id);

@@ -16,6 +16,9 @@ dist-ssr
 .nitro
 *.local
 
+# MCP server config (contains access tokens)
+.mcp.json
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

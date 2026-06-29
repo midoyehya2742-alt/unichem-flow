@@ -8,6 +8,8 @@ import { ScrollText, Eye, ShieldAlert, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({ meta: [{ title: "Audit log — UniChem ERP" }] }),
@@ -16,6 +18,7 @@ export const Route = createFileRoute("/audit")({
 
 function AuditPage() {
   const db = useDb();
+  const { t } = useTranslation("common");
   const log = db.listAudit();
   const [loading, setLoading] = useState(true);
 
@@ -25,10 +28,10 @@ function AuditPage() {
   }, []);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 font-sans">
+    <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 font-sans">
       <PageHeader
-        title="Security Audit log"
-        description="Immutable chronological register of admin actions, modifications, and system events."
+        title={t("audit.title")}
+        description={t("audit.desc")}
       />
 
       {loading ? (
@@ -45,9 +48,9 @@ function AuditPage() {
             <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
               <ScrollText className="h-6 w-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Clean audit ledger</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("audit.clean_ledger")}</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-              No system modifications or security actions have been logged yet.
+              {t("audit.no_mods")}
             </p>
           </CardContent>
         </Card>
@@ -81,6 +84,6 @@ function AuditPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageTransition>
   );
 }

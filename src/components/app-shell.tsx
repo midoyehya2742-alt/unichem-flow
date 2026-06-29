@@ -27,22 +27,22 @@ import { toast } from "sonner";
 
 interface NavItem {
   to: string;
-  label: string;
+  labelKey: string;
   icon: any;
   roles: Role[];
 }
 
 const NAV: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "finance", "salesman"] },
-  { to: "/deals/new", label: "New Deal", icon: Plus, roles: ["salesman", "admin"] },
-  { to: "/deals", label: "Deals", icon: FileText, roles: ["admin", "finance", "salesman"] },
-  { to: "/customers", label: "Customers", icon: Users, roles: ["admin", "finance", "salesman"] },
-  { to: "/products", label: "Products", icon: Package, roles: ["admin", "finance"] },
-  { to: "/inventory", label: "Inventory", icon: Warehouse, roles: ["admin", "finance"] },
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "finance"] },
-  { to: "/users", label: "Users", icon: UserCog, roles: ["admin"] },
-  { to: "/audit", label: "Audit Log", icon: ScrollText, roles: ["admin"] },
-  { to: "/settings", label: "Settings", icon: Settings, roles: ["admin"] },
+  { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, roles: ["admin", "finance", "salesman"] },
+  { to: "/deals/new", labelKey: "dashboard.new_deal", icon: Plus, roles: ["salesman", "admin"] },
+  { to: "/deals", labelKey: "nav.deals", icon: FileText, roles: ["admin", "finance", "salesman"] },
+  { to: "/customers", labelKey: "nav.customers", icon: Users, roles: ["admin", "finance", "salesman"] },
+  { to: "/products", labelKey: "nav.products", icon: Package, roles: ["admin", "finance"] },
+  { to: "/inventory", labelKey: "nav.inventory", icon: Warehouse, roles: ["admin", "finance"] },
+  { to: "/reports", labelKey: "nav.reports", icon: BarChart3, roles: ["admin", "finance"] },
+  { to: "/users", labelKey: "nav.users", icon: UserCog, roles: ["admin"] },
+  { to: "/audit", labelKey: "nav.audit", icon: ScrollText, roles: ["admin"] },
+  { to: "/settings", labelKey: "nav.settings", icon: Settings, roles: ["admin"] },
 ];
 
 interface SysNotification {
@@ -54,11 +54,16 @@ interface SysNotification {
   read: boolean;
 }
 
+import { useTranslation } from "react-i18next";
+import { useDb } from "@/lib/store";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const db = useDb();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { t, i18n } = useTranslation("common");
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -103,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const handleLogout = () => {
     logout();
-    toast.success("Successfully logged out");
+    toast.success(t("shell.logged_out"));
     navigate({ to: "/auth" });
   };
 
@@ -111,27 +116,28 @@ export function AppShell({ children }: { children: ReactNode }) {
     setFavorites((prev) => {
       const next = prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path];
       localStorage.setItem(`unichem-favs-${user.id}`, JSON.stringify(next));
-      toast.success(prev.includes(path) ? "Removed from Favorites" : "Added to Favorites");
+      toast.success(prev.includes(path) ? t("shell.removed_fav") : t("shell.added_fav"));
       return next;
     });
   };
 
   const markAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    toast.success("All notifications marked as read");
+    toast.success(t("shell.all_read"));
   };
 
   const getBreadcrumbs = () => {
     const parts = pathname.split("/").filter(Boolean);
     return parts.map((part, idx) => {
       const href = "/" + parts.slice(0, idx + 1).join("/");
-      const label = NAV.find((n) => n.to === href)?.label || part;
+      const navItem = NAV.find((n) => n.to === href);
+      const label = navItem ? t(navItem.labelKey) : part;
       return { href, label };
     });
   };
 
   const searchResults = items.filter((item) =>
-    item.label.toLowerCase().includes(searchQuery.toLowerCase())
+    t(item.labelKey).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -140,21 +146,17 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col bg-slate-900 text-slate-100 border-r border-slate-800 font-sans">
       {/* Brand Header */}
       <div className={cn("flex items-center gap-3 px-5 py-5 border-b border-slate-800 transition-all duration-300", sidebarCollapsed ? "justify-center px-2" : "")}>
-        <div className="grid place-items-center h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-yellow-500 shrink-0 shadow-lg">
-          <Beaker className="h-5 w-5 animate-pulse" />
-        </div>
-        {!sidebarCollapsed && (
-          <div>
-            <div className="font-extrabold tracking-tight text-base bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">UniChem</div>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Enterprise ERP</div>
-          </div>
+        {sidebarCollapsed ? (
+          <img src="/logo-symbol.png" alt="UniChem" className="h-8 w-8 object-contain shrink-0" />
+        ) : (
+          <img src="/logo-full.png" alt="UniChem International" className="h-10 w-auto max-w-[150px] object-contain shrink-0" />
         )}
       </div>
 
       {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
         <div className={cn("text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider", sidebarCollapsed ? "text-center px-0 text-[8px]" : "")}>
-          {sidebarCollapsed ? "NAV" : "Core Functions"}
+          {sidebarCollapsed ? t("shell.nav_short") : t("shell.core_functions")}
         </div>
         
         {items.map((item) => {
@@ -174,7 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <div className="flex items-center gap-3">
                 <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-slate-400 group-hover:text-white")} />
-                {!sidebarCollapsed && <span>{item.label}</span>}
+                {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
               </div>
               {!sidebarCollapsed && (
                 <button
@@ -197,7 +199,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {!sidebarCollapsed && favorites.length > 0 && (
           <div className="pt-6 border-t border-slate-800/80 mt-4 space-y-1">
             <div className="text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider flex items-center gap-1.5">
-              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> Favorites
+              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {t("shell.favorites")}
             </div>
             {favorites.map((fav) => {
               const item = NAV.find((n) => n.to === fav);
@@ -210,7 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   className="flex items-center gap-3 px-3 py-1.5 rounded-md text-xs text-slate-400 hover:text-white hover:bg-slate-800/40"
                 >
                   <Icon className="h-3.5 w-3.5" />
-                  <span>{item.label}</span>
+                  <span>{t(item.labelKey)}</span>
                 </Link>
               );
             })}
@@ -224,7 +226,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="mb-4 flex items-center justify-between rounded-lg bg-slate-800/30 p-2 border border-slate-800/40">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[11px] text-slate-400 font-semibold tracking-wide">SYSTEM OK</span>
+              <span className="text-[11px] text-slate-400 font-semibold tracking-wide">{t("shell.system_ok")}</span>
             </div>
             <button
               onClick={toggleTheme}
@@ -254,17 +256,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{t("shell.my_account")}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2" onClick={() => navigate({ to: "/settings" })}>
-                  <Settings2 className="h-4 w-4" /> Settings
+                  <Settings2 className="h-4 w-4" /> {t("shell.system_settings")}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" onClick={toggleTheme}>
-                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Toggle Theme
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {t("shell.toggle_theme")}
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={() => {
+                  const newLang = i18n.language === "ar" ? "en" : "ar";
+                  import("@/lib/i18n").then((m) => m.changeLanguage(newLang));
+                }}>
+                  <Sparkles className="h-4 w-4 text-slate-400" /> {i18n.language === "ar" ? "English" : "عربي"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive gap-2 focus:bg-destructive/10" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" /> Sign out
+                  <LogOut className="h-4 w-4" /> {t("nav.logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -298,13 +306,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/* Sidebar toggle triggers */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="p-2 -ml-2 text-slate-500 hover:text-slate-800 dark:hover:text-white md:hidden"
+              className="p-2 -ms-2 text-slate-500 hover:text-slate-800 dark:hover:text-white md:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
             <button
               onClick={() => setSidebarCollapsed((v) => !v)}
-              className="hidden md:flex p-2 -ml-2 text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              className="hidden md:flex p-2 -ms-2 text-slate-500 hover:text-slate-800 dark:hover:text-white"
             >
               {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
             </button>
@@ -331,7 +339,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
             >
               <Search className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Quick search...</span>
+              <span className="hidden md:inline">{t("shell.quick_search")}</span>
               <kbd className="hidden md:inline-flex items-center gap-0.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">
                 <Command className="h-2.5 w-2.5" />K
               </kbd>
@@ -350,11 +358,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <SheetContent className="w-80 sm:w-96 p-0 dark:bg-slate-900">
                 <SheetHeader className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
                   <SheetTitle className="text-sm font-bold flex items-center gap-2">
-                    <Bell className="h-4.5 w-4.5 text-indigo-500" /> Notifications
+                    <Bell className="h-4.5 w-4.5 text-indigo-500" /> {t("shell.notifications")}
                   </SheetTitle>
                   {unreadCount > 0 && (
                     <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs h-7 text-indigo-500">
-                      Mark all read
+                      {t("shell.mark_all_read")}
                     </Button>
                   )}
                 </SheetHeader>
@@ -362,8 +370,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {notifications.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                       <CheckCircle2 className="h-10 w-10 text-slate-300 dark:text-slate-700 mb-2" />
-                      <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">Clean Slate</div>
-                      <div className="text-xs text-slate-400 mt-1">No alerts or messages to address. You are all set!</div>
+                      <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t("shell.clean_slate")}</div>
+                      <div className="text-xs text-slate-400 mt-1">{t("shell.no_notifications")}</div>
                     </div>
                   ) : (
                     notifications.map((n) => {
@@ -415,14 +423,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2" onClick={() => navigate({ to: "/settings" })}>
-                  <Settings2 className="h-4 w-4 text-slate-400" /> System Settings
+                  <Settings2 className="h-4 w-4 text-slate-400" /> {t("shell.system_settings")}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" onClick={toggleTheme}>
-                  {theme === "dark" ? <Sun className="h-4 w-4 text-slate-400" /> : <Moon className="h-4 w-4 text-slate-400" />} Theme Switcher
+                  {theme === "dark" ? <Sun className="h-4 w-4 text-slate-400" /> : <Moon className="h-4 w-4 text-slate-400" />} {t("shell.theme_switcher")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive gap-2 focus:bg-destructive/10" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" /> Log Out
+                  <LogOut className="h-4 w-4" /> {t("shell.log_out")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -442,7 +450,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Search className="h-4.5 w-4.5 text-slate-400 shrink-0" />
             <Input
               type="text"
-              placeholder="Search ERP views or commands..."
+              placeholder={t("shell.search_placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="border-0 shadow-none focus-visible:ring-0 p-0 text-sm h-auto bg-transparent flex-1 dark:text-white placeholder-slate-400"
@@ -451,7 +459,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="max-h-72 overflow-y-auto py-2">
             {searchResults.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-500">No results matching query.</div>
+              <div className="p-4 text-center text-xs text-slate-500">{t("shell.no_results")}</div>
             ) : (
               searchResults.map((item) => {
                 const Icon = item.icon;
@@ -467,17 +475,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <div className="flex items-center gap-3">
                       <Icon className="h-4 w-4 text-slate-400" />
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{item.label}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{t(item.labelKey)}</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase font-mono">Navigate</span>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase font-mono">{t("shell.navigate")}</span>
                   </button>
                 );
               })
             )}
           </div>
           <div className="flex justify-between items-center border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-4 py-2 text-[10px] text-slate-400 font-mono">
-            <span>Use ↑↓ to navigate, Enter to select</span>
-            <span>ESC to close</span>
+            <span>{t("shell.search_hint")}</span>
+            <span>{t("shell.search_esc")}</span>
           </div>
         </DialogContent>
       </Dialog>

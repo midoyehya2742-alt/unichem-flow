@@ -16,11 +16,13 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Paperclip, X, AlertTriangle, Undo, Save, HelpCircle, FileCheck } from "lucide-react";
+import { Plus, Trash2, Paperclip, X, AlertTriangle, FileCheck } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { formatEGP } from "@/lib/format";
 import type { Attachment, Customer, DealLine } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/deals/new")({
   head: () => ({ meta: [{ title: "New Deal — UniChem ERP" }] }),
@@ -34,6 +36,7 @@ function NewDeal() {
   const { user } = useAuth();
   const db = useDb();
   const navigate = useNavigate();
+  const { t } = useTranslation("common");
 
   const customers = db.listCustomers();
   const products = db.listProducts();
@@ -204,11 +207,11 @@ function NewDeal() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 font-sans">
       <PageHeader
-        title="Submit New Deal"
-        description="Enter pipeline sale record. Submissions route immediately to Finance for invoice clearance."
+        title={t("deals.new_title")}
+        description={t("deals.new_desc")}
         actions={
           <Button variant="outline" size="sm" onClick={() => { clearDraft(); navigate({ to: "/deals" }); }} className="h-9 text-xs">
-            Cancel
+            {t("common.actions.cancel")}
           </Button>
         }
       />
@@ -219,15 +222,15 @@ function NewDeal() {
           {/* Customer Selection Card */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold">1. Customer & Schedule Info</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.step1_title")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-500">Customer Name *</Label>
+                <Label className="text-xs font-semibold text-slate-500">{t("deals.customer_name")}</Label>
                 <div className="flex gap-2">
                   <Select value={customerId} onValueChange={(val) => { setCustomerId(val); setTimeout(saveDraft, 0); }}>
                     <SelectTrigger className="flex-1 h-10 text-xs">
-                      <SelectValue placeholder="Search or select customer directory" />
+                      <SelectValue placeholder={t("deals.search_customer")} />
                     </SelectTrigger>
                     <SelectContent>
                       {customers.map((c) => (
@@ -246,11 +249,11 @@ function NewDeal() {
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500">Transaction Date</Label>
+                  <Label className="text-xs font-semibold text-slate-500">{t("deals.deal_date")}</Label>
                   <Input type="date" value={dealDate} onChange={(e) => { setDealDate(e.target.value); setTimeout(saveDraft, 0); }} className="h-10 text-xs" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500">Expected Payment Target</Label>
+                  <Label className="text-xs font-semibold text-slate-500">{t("deals.expected_payment_date")}</Label>
                   <Input type="date" value={expectedPaymentDate} onChange={(e) => { setExpectedPaymentDate(e.target.value); setTimeout(saveDraft, 0); }} className="h-10 text-xs" />
                 </div>
               </div>
@@ -260,9 +263,9 @@ function NewDeal() {
           {/* Line Items Card */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-bold">2. Portioned Chemical Line Items</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.step2_title")}</CardTitle>
               <Button size="sm" variant="outline" onClick={addLine} className="h-8 text-xs">
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add product line
+                <Plus className="h-3.5 w-3.5 mr-1 rtl:ml-1" /> {t("deals.add_product_line")}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -279,10 +282,10 @@ function NewDeal() {
                     )}
                   >
                     <div className="col-span-12 sm:col-span-5 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">Chemical SKU Product</Label>
+                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.chemical_sku")}</Label>
                       <Select value={line.productId} onValueChange={(v) => pickProduct(i, v)}>
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Select inventory" />
+                          <SelectValue placeholder={t("deals.select_inventory")} />
                         </SelectTrigger>
                         <SelectContent>
                           {products.map((p) => (
@@ -294,7 +297,7 @@ function NewDeal() {
                       </Select>
                     </div>
                     <div className="col-span-4 sm:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">Quantity</Label>
+                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.qty")}</Label>
                       <Input
                         type="number"
                         min={0.01}
@@ -305,7 +308,7 @@ function NewDeal() {
                       />
                     </div>
                     <div className="col-span-4 sm:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">Unit Price</Label>
+                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.unit_price")}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -316,7 +319,7 @@ function NewDeal() {
                       />
                     </div>
                     <div className="col-span-3 sm:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">Disc %</Label>
+                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.disc_pct")}</Label>
                       <Input
                         type="number"
                         min={0}
@@ -341,12 +344,12 @@ function NewDeal() {
                       <span>
                         {product && (
                           <span className={cn(low ? "font-bold text-amber-600 dark:text-amber-400" : "")}>
-                            Warehouse Stock: {product.stockQuantity} {product.unit}
+                            {t("deals.warehouse_stock")} {product.stockQuantity} {product.unit}
                           </span>
                         )}
                       </span>
                       <span>
-                        Line total: <span className="font-bold text-slate-850 dark:text-white">{formatEGP(subtotal)}</span>
+                        {t("deals.line_total")} <span className="font-bold text-slate-850 dark:text-white">{formatEGP(subtotal)}</span>
                       </span>
                     </div>
                   </div>
@@ -356,15 +359,15 @@ function NewDeal() {
               {stockWarnings.length > 0 && (
                 <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="h-4.5 w-4.5" />
-                  <AlertTitle className="text-xs font-bold">Insufficient Stock warning</AlertTitle>
+                  <AlertTitle className="text-xs font-bold">{t("deals.insufficient_stock")}</AlertTitle>
                   <AlertDescription className="text-xs space-y-2 mt-1">
-                    <ul className="list-disc pl-5 space-y-1">
+                    <ul className="list-disc pl-5 rtl:pr-5 rtl:pl-0 space-y-1">
                       {stockWarnings.map((w) => <li key={w}>{w}</li>)}
                     </ul>
                     {user?.role === "admin" && (
                       <label className="flex items-center gap-2 mt-3 cursor-pointer">
                         <Checkbox checked={overrideStock} onCheckedChange={(checked) => setOverrideStock(Boolean(checked))} />
-                        <span className="font-semibold text-[11px]">Authorize Admin stock validation override</span>
+                        <span className="font-semibold text-[11px]">{t("deals.authorize_override")}</span>
                       </label>
                     )}
                   </AlertDescription>
@@ -377,8 +380,8 @@ function NewDeal() {
           <div className="grid sm:grid-cols-2 gap-5">
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">3. Purchase order / Attachments</CardTitle>
-                <CardDescription className="text-[10px]">PDF or image files up to 10MB</CardDescription>
+                <CardTitle className="text-sm font-bold">{t("deals.step3_title")}</CardTitle>
+                <CardDescription className="text-[10px]">{t("deals.step3_desc")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div
@@ -402,8 +405,8 @@ function NewDeal() {
                   />
                   <label htmlFor="file-upload" className="cursor-pointer space-y-1">
                     <Paperclip className="h-6 w-6 text-slate-400 mx-auto" />
-                    <div className="text-xs font-semibold text-indigo-500">Upload transaction attachment</div>
-                    <div className="text-[10px] text-slate-400">or drag and drop file here</div>
+                    <div className="text-xs font-semibold text-indigo-500">{t("deals.upload_attachment")}</div>
+                    <div className="text-[10px] text-slate-400">{t("deals.or_drag_drop")}</div>
                   </label>
                 </div>
 
@@ -430,12 +433,12 @@ function NewDeal() {
 
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">4. Internal Remarks</CardTitle>
+                <CardTitle className="text-sm font-bold">{t("deals.step4_title")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Textarea
                   rows={4}
-                  placeholder="Enter logistics comments or payment conditions..."
+                  placeholder={t("deals.remarks_placeholder")}
                   value={notes}
                   onChange={(e) => { setNotes(e.target.value); setTimeout(saveDraft, 0); }}
                   className="text-xs placeholder-slate-400 focus-visible:ring-indigo-500 resize-none"
@@ -449,17 +452,17 @@ function NewDeal() {
         <div className="space-y-4">
           <Card className="sticky top-20 border-slate-200 dark:border-slate-800 shadow-lg">
             <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-              <CardTitle className="text-sm font-bold">Pipeline Value</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.pipeline_value")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               <div className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
                 <div className="flex justify-between">
-                  <span>Gross Subtotal</span>
+                  <span>{t("deals.gross_subtotal")}</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{formatEGP(totals.subtotal)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-semibold text-slate-500">Overall Disc %</Label>
+                    <Label className="text-[10px] font-semibold text-slate-500">{t("deals.overall_disc_pct")}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -470,7 +473,7 @@ function NewDeal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-semibold text-slate-500">Global Tax %</Label>
+                    <Label className="text-[10px] font-semibold text-slate-500">{t("deals.global_tax_pct")}</Label>
                     <Input
                       type="number"
                       min={0}
@@ -484,7 +487,7 @@ function NewDeal() {
               </div>
 
               <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex justify-between items-end">
-                <span className="text-xs text-slate-500">Cleared Net Amount</span>
+                <span className="text-xs text-slate-500">{t("deals.cleared_net")}</span>
                 <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
                   {formatEGP(totals.total)}
                 </span>
@@ -492,10 +495,10 @@ function NewDeal() {
 
               <div className="space-y-2 pt-2">
                 <Button className="w-full shadow-lg shadow-indigo-600/10" onClick={submit}>
-                  <FileCheck className="h-4 w-4 mr-2" /> Route to Ledger
+                  <FileCheck className="h-4 w-4 me-2" /> {t("deals.route_to_ledger")}
                 </Button>
                 <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: "/deals" })}>
-                  Discard Entry
+                  {t("deals.discard_entry")}
                 </Button>
               </div>
             </CardContent>
@@ -510,6 +513,7 @@ function NewCustomerDialog({
   open, setOpen, onCreated,
 }: { open: boolean; setOpen: (v: boolean) => void; onCreated: (c: Customer) => void }) {
   const db = useDb();
+  const { t } = useTranslation("common");
   const [form, setForm] = useState({ name: "", company: "", phone: "", email: "", address: "" });
 
   const create = () => {
@@ -530,20 +534,20 @@ function NewCustomerDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md font-sans dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-sm font-bold">Add customer to directory</DialogTitle>
+          <DialogTitle className="text-sm font-bold">{t("deals.add_customer_dir")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2 text-xs">
-          <div className="space-y-1"><Label className="text-slate-500">Customer Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-9" /></div>
-          <div className="space-y-1"><Label className="text-slate-500">Company Name</Label><Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="h-9" /></div>
+          <div className="space-y-1"><Label className="text-slate-500">{t("deals.customer_name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-9" /></div>
+          <div className="space-y-1"><Label className="text-slate-500">{t("deals.company_name")}</Label><Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="h-9" /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label className="text-slate-500">Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-9" /></div>
-            <div className="space-y-1"><Label className="text-slate-500">Email Address</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-9" /></div>
+            <div className="space-y-1"><Label className="text-slate-500">{t("deals.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-9" /></div>
+            <div className="space-y-1"><Label className="text-slate-500">{t("deals.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-9" /></div>
           </div>
-          <div className="space-y-1"><Label className="text-slate-500">Billing Address</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="h-9" /></div>
+          <div className="space-y-1"><Label className="text-slate-500">{t("deals.billing_address")}</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="h-9" /></div>
         </div>
         <DialogFooter className="mt-4 gap-2">
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button size="sm" onClick={create}>Save record</Button>
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t("common.actions.cancel")}</Button>
+          <Button size="sm" onClick={create}>{t("deals.save_record")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -69,10 +69,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
+import "@/lib/i18n";
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html suppressHydrationWarning>
       <head><HeadContent /></head>
       <body>
         {children}

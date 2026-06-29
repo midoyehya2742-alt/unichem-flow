@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({ meta: [{ title: "Reports — UniChem ERP" }] }),
@@ -26,6 +27,7 @@ type Range = "7d" | "30d" | "90d" | "ytd";
 function ReportsPage() {
   const db = useDb();
   const deals = db.listDeals();
+  const { t } = useTranslation("common");
   const [range, setRange] = useState<Range>("30d");
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,7 @@ function ReportsPage() {
 
   const exportCsv = () => {
     if (filtered.length === 0) {
-      toast.warning("No records to export");
+      toast.warning(t("reports.no_records_export"));
       return;
     }
     const rows = [
@@ -74,7 +76,7 @@ function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `unichem-report-${range}-${Date.now()}.csv`; a.click();
     URL.revokeObjectURL(url);
-    toast.success("Reports ledger exported successfully");
+    toast.success(t("reports.export_success"));
   };
 
   const COLORS = ["#4f46e5", "#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899"];
@@ -82,21 +84,21 @@ function ReportsPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
       <PageHeader
-        title="Business Analytics"
-        description="Comprehensive summary reporting tools for pipeline metrics, sales conversion, and product rankings."
+        title={t("reports.title")}
+        description={t("reports.desc")}
         actions={
           <div className="flex gap-2 shrink-0">
             <Select value={range} onValueChange={(v: Range) => setRange(v)}>
               <SelectTrigger className="w-40 h-9 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="ytd">Year to date</SelectItem>
+                <SelectItem value="7d">{t("reports.last_7d")}</SelectItem>
+                <SelectItem value="30d">{t("reports.last_30d")}</SelectItem>
+                <SelectItem value="90d">{t("reports.last_90d")}</SelectItem>
+                <SelectItem value="ytd">{t("reports.ytd")}</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" size="sm" onClick={exportCsv} className="h-9 text-xs">
-              <Download className="h-3.5 w-3.5 mr-2 text-slate-500" /> Export CSV
+              <Download className="h-3.5 w-3.5 me-2 text-slate-500" /> {t("reports.export_csv")}
             </Button>
           </div>
         }
@@ -104,9 +106,9 @@ function ReportsPage() {
 
       {/* Stats Cards Row */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard icon={FileSpreadsheet} label="Total Transactions" value={String(filtered.length)} sub="Active pipeline count" tone="primary" />
-        <StatCard icon={TrendingUp} label="Gross Billing value" value={formatEGP(total)} sub="Sum of all invoice values" tone="primary" />
-        <StatCard icon={Percent} label="Cash Clearance Rate" value={`${collectionsRate.toFixed(1)}%`} sub="Collected vs Gross pipeline" tone="success" />
+        <StatCard icon={FileSpreadsheet} label={t("reports.total_transactions")} value={String(filtered.length)} sub={t("reports.active_pipeline_count")} tone="primary" />
+        <StatCard icon={TrendingUp} label={t("reports.gross_billing")} value={formatEGP(total)} sub={t("reports.sum_invoices")} tone="primary" />
+        <StatCard icon={Percent} label={t("reports.clearance_rate")} value={`${collectionsRate.toFixed(1)}%`} sub={t("reports.collected_vs_gross")} tone="success" />
       </div>
 
       {loading ? (
@@ -120,9 +122,9 @@ function ReportsPage() {
             <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
               <ChartIcon className="h-6 w-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Insufficient reports data</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("reports.insufficient_data_title")}</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-              There are no transaction records matching this timeframe. Once deals are logged, conversion metrics will compute here.
+              {t("reports.insufficient_data_desc")}
             </p>
           </CardContent>
         </Card>
@@ -131,19 +133,19 @@ function ReportsPage() {
           {/* Top Salesmen Bar Chart */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold">Top Sales Agents Conversion</CardTitle>
-              <CardDescription className="text-xs">Individual pipeline contributions (EGP)</CardDescription>
+              <CardTitle className="text-sm font-bold">{t("reports.top_sales_agents")}</CardTitle>
+              <CardDescription className="text-xs">{t("reports.sales_agents_desc")}</CardDescription>
             </CardHeader>
             <CardContent className="h-72">
               {bySalesman.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">No active contributions.</div>
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_sales_active")}</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={bySalesman}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
                     <XAxis dataKey="name" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
                     <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), "Revenue"]} />
+                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), t("reports.revenue")]} />
                     <Bar dataKey="total" radius={[4, 4, 0, 0]}>
                       {bySalesman.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                     </Bar>
@@ -156,19 +158,19 @@ function ReportsPage() {
           {/* Top Products Bar Chart */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
             <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold">Top Product Catalog Revenue</CardTitle>
-              <CardDescription className="text-xs">Highest grossing chemical items (EGP)</CardDescription>
+              <CardTitle className="text-sm font-bold">{t("reports.top_products")}</CardTitle>
+              <CardDescription className="text-xs">{t("reports.products_desc")}</CardDescription>
             </CardHeader>
             <CardContent className="h-72">
               {byProduct.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">No product sales logged.</div>
+                <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_product_sales")}</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byProduct} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
                     <XAxis type="number" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
                     <YAxis type="category" dataKey="name" width={110} stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), "Gross Revenue"]} />
+                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), t("reports.gross_revenue")]} />
                     <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
                       {byProduct.map((_, index) => <Cell key={index} fill={COLORS[(index + 3) % COLORS.length]} />)}
                     </Bar>

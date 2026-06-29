@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { LoaderScreen } from "@/components/ui/loader-screen";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -13,9 +14,5 @@ function Index() {
     if (loading) return;
     navigate({ to: user ? "/dashboard" : "/auth", replace: true });
   }, [user, loading, navigate]);
-  return (
-    <div className="min-h-screen grid place-items-center text-muted-foreground text-sm">
-      Loading UniChem ERP…
-    </div>
-  );
+  return <LoaderScreen />;
 }

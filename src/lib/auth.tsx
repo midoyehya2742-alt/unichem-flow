@@ -56,20 +56,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrateUser(id: string, email: string) {
       if (!mounted) return;
       try {
-        const [profileRes, roleRes] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", id).single(),
-          supabase.from("user_roles").select("role").eq("user_id", id).single(),
-        ]);
+        const profileRes = await supabase.from("profiles").select("*").eq("id", id).single();
         
         if (profileRes.error) throw profileRes.error;
-        if (roleRes.error) throw roleRes.error;
+
+        // Read role from profiles.role first (populated by newer create_app_user),
+        // then fall back to user_roles table for backwards compatibility.
+        let role: Role = (profileRes.data.role as Role) || "salesman";
+        if (!profileRes.data.role) {
+          const roleRes = await supabase.from("user_roles").select("role").eq("user_id", id).single();
+          if (!roleRes.error && roleRes.data?.role) {
+            role = roleRes.data.role as Role;
+          }
+        }
 
         if (mounted) {
           setUser({
             id: profileRes.data.id,
             email: email,
             name: profileRes.data.name,
-            role: roleRes.data.role as Role,
+            role,
             phone: profileRes.data.phone ?? undefined,
             active: profileRes.data.active,
             createdAt: profileRes.data.created_at,
