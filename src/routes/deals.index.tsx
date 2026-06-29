@@ -42,8 +42,8 @@ function DealsList() {
 
   const allDeals = db.listDeals();
   const visible = useMemo(() => {
-    return user?.role === "salesman" ? allDeals.filter((d) => d.salesmanId === user.id) : allDeals;
-  }, [allDeals, user]);
+    return allDeals;
+  }, [allDeals]);
 
   const filtered = useMemo(() => {
     return visible.filter((d) => {

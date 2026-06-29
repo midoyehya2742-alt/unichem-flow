@@ -33,7 +33,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory - UniChem ERP" }] }),
-  component: () => <RequireAuth roles={["admin", "finance"]}><InventoryPage /></RequireAuth>,
+  component: () => <RequireAuth roles={["admin", "finance", "salesman"]}><InventoryPage /></RequireAuth>,
 });
 
 const units = ["KG", "Ton", "Bag", "Drum", "L", "Box", "Piece"];
@@ -174,6 +174,7 @@ function InventoryPage() {
       cell: ({ row }) => {
         const p = row.original;
         const low = p.stockQuantity <= p.minimumStockLevel;
+        if (user?.role === "salesman") return null;
         return (
           <div className="flex items-center gap-1.5">
             {low && <Badge variant="destructive" className="mr-1 text-[9px] px-1 py-0 h-4">{t("inventory.low_stock")}</Badge>}
@@ -283,7 +284,7 @@ function InventoryPage() {
         <PageHeader
           title={t("nav.inventory")}
           description={t("inventory.desc")}
-          actions={<Button size="sm" onClick={openNew} className="h-9 text-xs"><PackagePlus className="h-4 w-4 ms-2" />{t("inventory.add_product")}</Button>}
+          actions={user?.role !== "salesman" && <Button size="sm" onClick={openNew} className="h-9 text-xs"><PackagePlus className="h-4 w-4 ms-2" />{t("inventory.add_product")}</Button>}
         />
 
       <div className="grid gap-4 sm:grid-cols-3">

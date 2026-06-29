@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, AlertTriangle, MessageSquare, TrendingUp } from "lucide-react";
+import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, AlertTriangle, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
@@ -50,7 +50,7 @@ function DealDetails() {
     );
   }
 
-  const canEditPayment = user?.role === "finance" || user?.role === "admin";
+  const canEditPayment = true; // anyone can edit deals now
 
   const savePayment = () => {
     if (!user) return;
@@ -87,9 +87,20 @@ function DealDetails() {
         <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/deals" })} className="text-slate-500 hover:text-slate-800">
           <ArrowLeft className="h-4 w-4 me-1.5 rtl:rotate-180" /> {t("deals.back_to_ledger")}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 text-xs">
-          <Printer className="h-4 w-4 me-2 text-slate-500" /> {t("common.actions.print_invoice")}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 text-xs">
+            <Printer className="h-4 w-4 me-2 text-slate-500" /> {t("common.actions.print_invoice")}
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => {
+            if (window.confirm("Are you sure you want to delete this deal?")) {
+              db.deleteDeal(deal.id);
+              toast.success("Deal deleted");
+              navigate({ to: "/deals" });
+            }
+          }} className="h-8 text-xs">
+            <Trash2 className="h-4 w-4 me-2" /> Delete
+          </Button>
+        </div>
       </div>
 
       <PageHeader
@@ -221,6 +232,48 @@ function DealDetails() {
               </CardContent>
             </Card>
           )}
+
+          {/* Payment Method Section */}
+          <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:shadow-none print:border-0 print:m-0 print:p-0">
+            <CardHeader className="pb-2 print:p-0 print:mb-2">
+              <CardTitle className="text-sm font-bold">Payment Method</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-500">Payment Type</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">{deal.paymentType || "immediate"}</span>
+                <span className="text-slate-500">Method</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200 capitalize">{deal.paymentMethod || "cash"}</span>
+                {deal.paymentType === "installments" && (
+                  <>
+                    <span className="text-slate-500">Immediate Down Payment</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatEGP(deal.immediateAmount || 0)}</span>
+                  </>
+                )}
+              </div>
+              {deal.paymentInfo && (
+                <div>
+                  <span className="text-slate-500 block mb-1">Payment Details</span>
+                  <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-2 rounded-md">
+                    {deal.paymentInfo}
+                  </div>
+                </div>
+              )}
+              {deal.paymentType === "installments" && deal.paymentMethod === "cheques" && deal.cheques && deal.cheques.length > 0 && (
+                <div className="mt-3">
+                  <span className="text-slate-500 block mb-2 font-semibold">Installment Cheques</span>
+                  <div className="space-y-2">
+                    {deal.cheques.map((c: any, i: number) => (
+                      <div key={c.id || i} className="flex justify-between p-2 border rounded-md">
+                        <span className="text-slate-600">Cheque {i + 1} ({formatDateTime(c.dueDate).split(",")[0]})</span>
+                        <span className="font-semibold">{formatEGP(c.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Finance collaborative notes log */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">

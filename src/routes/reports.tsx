@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({ meta: [{ title: "Reports — UniChem ERP" }] }),
-  component: () => <RequireAuth roles={["admin", "finance"]}><ReportsPage /></RequireAuth>,
+  component: () => <RequireAuth roles={["admin", "finance", "salesman"]}><ReportsPage /></RequireAuth>,
 });
 
 type Range = "7d" | "30d" | "90d" | "ytd";

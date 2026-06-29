@@ -101,6 +101,11 @@ export interface Deal {
   notes?: string;
   financeNotes: FinanceNote[];
   attachments: Attachment[];
+  paymentType?: "immediate" | "installments";
+  paymentMethod?: "cash" | "cheques";
+  paymentInfo?: string;
+  immediateAmount?: number;
+  cheques?: { id: string; amount: number; dueDate: string }[];
   dealDate: string;
   expectedPaymentDate?: string;
   createdAt: string;

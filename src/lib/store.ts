@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import { toast } from "sonner";
 import type {
   Attachment,
   AuditEntry,
@@ -159,6 +160,11 @@ const fromDeal = (r: any, users: User[], customers: Customer[]): Deal => ({
     id: a.id, name: a.name, size: a.size, type: a.type ?? a.mime,
     path: a.path ?? undefined, dataUrl: a.dataUrl ?? undefined,
   })),
+  paymentType: r.payment_type ?? undefined,
+  paymentMethod: r.payment_method ?? undefined,
+  paymentInfo: r.payment_info ?? undefined,
+  immediateAmount: r.immediate_amount ? Number(r.immediate_amount) : undefined,
+  cheques: r.cheques ?? undefined,
   dealDate: r.deal_date,
   expectedPaymentDate: r.expected_payment_date ?? undefined,
   createdAt: r.created_at,
@@ -184,6 +190,11 @@ const toDeal = (d: Deal) => ({
   notes: d.notes ?? null,
   finance_notes: d.financeNotes,
   attachments: d.attachments,
+  payment_type: d.paymentType ?? null,
+  payment_method: d.paymentMethod ?? null,
+  payment_info: d.paymentInfo ?? null,
+  immediate_amount: d.immediateAmount ?? null,
+  cheques: d.cheques ?? null,
   deal_date: d.dealDate,
   expected_payment_date: d.expectedPaymentDate ?? null,
   created_at: d.createdAt,
@@ -234,6 +245,14 @@ async function refreshAll() {
     supabase.from("company_settings").select("*").limit(1),
   ]);
 
+  if (usersRes.error || customersRes.error || productsRes.error || dealsRes.error || movementsRes.error || auditRes.error || settingsRes.error) {
+    console.error("Fetch error during refresh, keeping optimistic data.", {
+      u: usersRes.error, c: customersRes.error, p: productsRes.error, 
+      d: dealsRes.error, m: movementsRes.error, a: auditRes.error, s: settingsRes.error
+    });
+    return;
+  }
+
   const users = (usersRes.data || []).map(fromProfile);
   const customers = (customersRes.data || []).map(fromCustomer);
   const products = (productsRes.data || []).map(fromProduct);
@@ -255,15 +274,28 @@ async function refreshInventory() {
     supabase.from("products").select("*").order("name", { ascending: true }),
     supabase.from("inventory_movements").select("*").order("created_at", { ascending: false }),
   ]);
+  if (productsRes.error || movementsRes.error) {
+    console.error("Fetch error during inventory refresh.", {
+      p: productsRes.error, m: movementsRes.error
+    });
+    return;
+  }
+  
   const products = (productsRes.data || []).map(fromProduct);
   db.products = products;
   db.inventoryMovements = (movementsRes.data || []).map(m => fromMovement(m, products, db.users));
   emit();
 }
 
-function remote(task: PromiseLike<unknown>) {
-  Promise.resolve(task).catch((error) => {
+function remote(task: PromiseLike<any>) {
+  Promise.resolve(task).then(res => {
+    if (res && res.error) {
+      console.error("Database remote error:", res.error);
+      toast.error(res.error.message || "A database error occurred");
+    }
+  }).catch((error) => {
     console.error(error);
+    toast.error(error.message || "An unexpected error occurred");
   }).finally(() => {
     refreshAll().catch(console.error);
   });
@@ -427,7 +459,7 @@ export const store = {
     }
     return att.dataUrl ?? null;
   },
-  createDeal(d: Deal, overrideStock = false) {
+  async createDeal(d: Deal, overrideStock = false) {
     if (!overrideStock) {
       const short = d.lines.find((line) => {
         const p = db.products.find((x) => x.id === line.productId && !x.archived);
@@ -435,7 +467,10 @@ export const store = {
       });
       if (short) throw new Error("Warning: Not enough inventory available.");
     }
+
+    // Optimistically add deal and decrement stock
     db.deals = [d, ...db.deals];
+    const stockSnapshot = db.products.map(p => ({ id: p.id, stockQuantity: p.stockQuantity }));
     d.lines.forEach((line) => {
       const p = db.products.find((x) => x.id === line.productId);
       if (!p) return;
@@ -448,10 +483,24 @@ export const store = {
     // inserts the deal, decrements stock, writes inventory movements and the audit
     // log atomically. This is the only path that lets a salesman decrement product
     // stock, since direct UPDATEs on products are restricted to finance/admin by RLS.
-    remote(supabase.rpc("create_deal_with_inventory", {
+    const { error } = await supabase.rpc("create_deal_with_inventory", {
       p_deal: toDeal(d),
       p_override_stock: overrideStock,
-    }));
+    });
+
+    if (error) {
+      // Rollback optimistic changes
+      db.deals = db.deals.filter((x) => x.id !== d.id);
+      db.products = db.products.map((p) => {
+        const snap = stockSnapshot.find((s) => s.id === p.id);
+        return snap ? { ...p, stockQuantity: snap.stockQuantity } : p;
+      });
+      emit();
+      throw new Error(error.message);
+    }
+
+    // Refresh to sync server-side changes (inventory movements, updated stock)
+    await refreshAll();
   },
   updateDeal(d: Deal, _actor: User) {
     const next = { ...d, updatedAt: now() };
@@ -461,6 +510,37 @@ export const store = {
     // finance_notes and attachments are persisted as jsonb columns via toDeal();
     // finance/admin update access is enforced by the "deals update" RLS policy.
     remote(supabase.from("deals").update(toDeal(next)).eq("id", d.id));
+  },
+  updateDealFull(oldDeal: Deal, newDeal: Deal) {
+    // 1. Revert old stock locally
+    oldDeal.lines.forEach((line) => {
+      const p = db.products.find((x) => x.id === line.productId);
+      if (p) {
+        p.stockQuantity += line.quantity;
+      }
+    });
+
+    // 2. Apply new stock locally
+    newDeal.lines.forEach((line) => {
+      const p = db.products.find((x) => x.id === line.productId);
+      if (p) {
+        p.stockQuantity = Math.max(0, p.stockQuantity - line.quantity);
+      }
+    });
+
+    const next = { ...newDeal, updatedAt: now() };
+    db.deals = db.deals.map((x) => (x.id === newDeal.id ? next : x));
+    emit();
+
+    // Persist deal update to Supabase.
+    // NOTE: This will NOT write inventory_movements records in Supabase because
+    // there's no matching RPC for full deal update. It only updates the deal record.
+    remote(supabase.from("deals").update(toDeal(next)).eq("id", newDeal.id));
+  },
+  deleteDeal(id: string) {
+    db.deals = db.deals.filter((d) => d.id !== id);
+    emit();
+    remote(supabase.from("deals").delete().eq("id", id));
   },
 
   listAudit: () => db.audit.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),

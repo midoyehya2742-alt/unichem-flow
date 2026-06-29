@@ -58,7 +58,7 @@ function Dashboard() {
   const customers = db.listCustomers();
   const movements = db.listInventoryMovements();
 
-  const myDeals = user?.role === "salesman" ? deals.filter((d) => d.salesmanId === user.id) : deals;
+  const myDeals = deals;
 
   const total = myDeals.reduce((s, d) => s + d.total, 0);
   const paid = myDeals.reduce((s, d) => s + d.amountPaid, 0);
@@ -344,7 +344,7 @@ function Dashboard() {
                   <span>{t("nav.customers")}</span>
                 </Button>
               </Link>
-              {(user?.role === "admin" || user?.role === "finance") && (
+              {(user?.role === "admin" || user?.role === "finance" || user?.role === "salesman") && (
                 <Link to="/reports" className="w-full">
                   <Button variant="outline" className="w-full h-16 flex flex-col gap-1 text-xs justify-center items-center">
                     <BarChart2 className="h-4.5 w-4.5 text-indigo-500" />
