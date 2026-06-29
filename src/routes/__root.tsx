@@ -89,7 +89,20 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <Outlet />
-          <Toaster richColors position="top-right" />
+          <Toaster
+            richColors
+            position="top-right"
+            closeButton
+            duration={4000}
+            toastOptions={{
+              classNames: {
+                toast: "font-sans text-sm rounded-xl shadow-lg",
+                title: "font-semibold",
+                description: "text-xs opacity-80",
+                closeButton: "opacity-60 hover:opacity-100",
+              },
+            }}
+          />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
