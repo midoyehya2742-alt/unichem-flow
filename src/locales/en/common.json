@@ -50,7 +50,8 @@
       "title": "Actions",
       "cancel": "Cancel",
       "save": "Save"
-    }
+    },
+    "columns": "Columns"
   },
   "inventory": {
     "desc": "Manage chemical compounds, monitor stock levels, and track supply movements.",
@@ -359,5 +360,7 @@
     "logo_hint": "After uploading, click Save Settings above to persist the logo.",
     "governance": "System Governance",
     "gov_desc": "Settings configured on this screen affect tax estimates and title configurations for all connected active users immediately. Modify parameters with care."
-  }
+  },
+  "no_results": "No data to display",
+  "showing_rows": "Showing {{count}} rows"
 }

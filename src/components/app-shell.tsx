@@ -75,12 +75,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Clean, production-ready notification state starting with no notifications (or a system welcome for the first admin)
   const [notifications, setNotifications] = useState<SysNotification[]>([]);
 
-  if (!user) return null;
-
-  const items = NAV.filter((n) => n.roles.includes(user.role));
+  const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
   // Initialize and track user navigation history
   useEffect(() => {
+    if (!user) return;
     const savedFavs = localStorage.getItem(`unichem-favs-${user.id}`);
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
@@ -92,7 +91,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         return next;
       });
     }
-  }, [pathname, user.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, user?.id]);
 
   // Handle Command + K global search keyboard shortcut
   useEffect(() => {
@@ -105,6 +105,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  if (!user) return null;
 
   const handleLogout = () => {
     logout();
