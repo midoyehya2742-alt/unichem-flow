@@ -169,72 +169,94 @@ function AuthPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-12 bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
       {/* ── Brand Panel ── */}
-      <div className="hidden lg:flex lg:col-span-7 xl:col-span-8 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.15),transparent_40%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(234,179,8,0.05),transparent_40%)]" />
+      <div 
+        className="hidden lg:flex lg:col-span-7 xl:col-span-8 flex-col justify-between p-12 text-white relative overflow-hidden bg-slate-950"
+        style={{
+          backgroundImage: 'url("/login-bg.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-950/40 to-transparent mix-blend-overlay" />
 
         <div className="flex items-center gap-3 relative z-10">
-          <div className="bg-white/80 dark:bg-white p-2 rounded-xl backdrop-blur-md inline-block">
-            <img src="/logo-full.png" alt="UniChem" className="h-16 w-auto object-contain" />
+          <div className="bg-white p-3.5 rounded-2xl shadow-2xl inline-block ring-1 ring-white/20">
+            <img src="/logo-full.png" alt="UniChem" className="h-14 w-auto object-contain" />
           </div>
         </div>
 
-        <div className="space-y-6 max-w-2xl relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-yellow-500">
-            <ShieldCheck className="h-3.5 w-3.5" /> High-Performance Internal ERP
+        <div className="space-y-8 max-w-2xl relative z-10 bg-slate-900/40 p-10 rounded-[2rem] backdrop-blur-xl border border-white/10 shadow-2xl ring-1 ring-white/5">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/50 border border-slate-600/50 text-sm font-medium text-slate-300 shadow-sm backdrop-blur-md tracking-wide">
+            <ShieldCheck className="h-4 w-4 text-emerald-400" /> Secure Corporate Network
           </div>
-          <h2 className="text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight">
-            Integrated Command for Sales, Inventory &amp; Finance
-          </h2>
-          <p className="text-slate-300 text-lg leading-relaxed">
-            Eliminate silos, automate tracking, and authorize transactions in one centralized interface. Log in to your corporate portal to manage chemical portfolios, inventory audits, and deal workflows.
+          
+          <div className="space-y-4">
+            <h2 className="text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
+              Enterprise Operations Portal
+            </h2>
+            <p className="text-xl font-medium text-slate-300 drop-shadow-md tracking-wide">
+              Centralized management for UniChem's supply chain, finance, and commercial operations.
+            </p>
+          </div>
+          
+          <p className="text-slate-400 text-base leading-relaxed font-light">
+            Please authenticate with your corporate credentials to access the secure internal network. 
+            This system contains confidential business information. Unauthorized access or distribution 
+            of data is strictly prohibited and monitored.
           </p>
-          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-800">
+          
+          <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
             <div>
-              <div className="text-2xl font-bold text-white">EGP 0.00</div>
-              <div className="text-xs text-slate-400">Total Cleared Sales</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Sales & CRM</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-white">100%</div>
-              <div className="text-xs text-slate-400">Real-time Stock Audits</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Inventory & Logistics</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-white">Role-Based</div>
-              <div className="text-xs text-slate-400">Enforced Security</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Finance & Audit</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
             </div>
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 relative z-10 flex items-center justify-between">
+        <div className="text-sm text-slate-400 relative z-10 flex items-center justify-between font-medium">
           <span>© {new Date().getFullYear()} UniChem Co. All rights reserved.</span>
           <span>System Version v2.1.0-prod</span>
         </div>
       </div>
 
       {/* ── Auth Form Panel ── */}
-      <div className="lg:col-span-5 xl:col-span-4 flex items-center justify-center p-6 sm:p-12 md:bg-white dark:md:bg-slate-900 border-l border-slate-100 dark:border-slate-800">
-        <div className="w-full max-w-md space-y-6">
-          <div className="lg:hidden flex items-center gap-3 justify-center mb-6">
-            <img src="/logo-full.png" alt="UniChem" className="h-12 w-auto object-contain" />
+      <div className="lg:col-span-5 xl:col-span-4 flex items-center justify-center p-6 sm:p-12 bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 relative">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_50%)]" />
+        
+        <div className="w-full max-w-md space-y-8 relative z-10">
+          <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
+            <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 inline-block">
+              <img src="/logo-full.png" alt="UniChem" className="h-12 w-auto object-contain" />
+            </div>
           </div>
 
-          <Card className="border-0 shadow-none md:shadow-lg md:border dark:bg-slate-900/50">
-            <CardHeader className="space-y-1.5 pb-4">
-              <CardTitle className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <Card className="border-0 shadow-none md:shadow-2xl md:shadow-slate-200/50 dark:md:shadow-none md:border md:border-slate-200/60 dark:md:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl overflow-hidden">
+            <CardHeader className="space-y-2 pb-6 px-6 sm:px-8 pt-8">
+              <CardTitle className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {activeTab === "signin" && "Welcome back"}
                 {activeTab === "signup" && "Create account"}
                 {activeTab === "forgot" && "Reset password"}
                 {activeTab === "reset" && "Set new password"}
               </CardTitle>
-              <CardDescription className="text-slate-500 dark:text-slate-400">
-                {activeTab === "signin" && "Sign in to access your dashboard"}
+              <CardDescription className="text-base text-slate-500 dark:text-slate-400 font-medium">
+                {activeTab === "signin" && "Sign in to your account to continue"}
                 {activeTab === "signup" && "Register as a company employee"}
                 {activeTab === "forgot" && "We'll email you a secure recovery link"}
                 {activeTab === "reset" && "Enter a new password for your account"}
               </CardDescription>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="px-6 sm:px-8 pb-8">
               {/* ── Forgot Password Form ── */}
               {activeTab === "forgot" && (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
