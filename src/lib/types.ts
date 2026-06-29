@@ -70,7 +70,8 @@ export interface Attachment {
   name: string;
   size: number;
   type: string;
-  dataUrl: string; // base64 (mock)
+  path?: string; // storage object path in the "deal-attachments" bucket
+  dataUrl?: string; // legacy: base64 data URL (older deals stored inline)
 }
 
 export interface FinanceNote {

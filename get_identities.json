@@ -1,0 +1,1 @@
+{"query":"SELECT provider_id, identity_data FROM auth.identities LIMIT 1;"}

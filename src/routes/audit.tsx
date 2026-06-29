@@ -38,15 +38,28 @@ function AuditPage() {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Audit rows come from two sources with different naming: DB triggers log the
+  // plural table name (products, customers, deals, profiles) and SQL verbs
+  // (insert/update/delete), while RPCs log singular entities (deal, inventory)
+  // and friendlier verbs (create). Normalize both so the filters actually match.
+  const normEntity = (s: string) => s.toLowerCase().replace(/s$/, "");
+  const normAction = (s: string) => {
+    const a = s.toLowerCase();
+    if (a === "insert") return "create";
+    if (a === "edit") return "update";
+    if (a === "remove") return "delete";
+    return a;
+  };
+
   const filteredLogs = log.filter((e) => {
-    const matchesSearch = 
+    const matchesSearch =
       e.actorName.toLowerCase().includes(q.toLowerCase()) ||
       e.action.toLowerCase().includes(q.toLowerCase()) ||
       e.entity.toLowerCase().includes(q.toLowerCase()) ||
       (e.details && e.details.toLowerCase().includes(q.toLowerCase()));
 
-    const matchesAction = actionFilter === "all" || e.action.toLowerCase() === actionFilter.toLowerCase();
-    const matchesEntity = entityFilter === "all" || e.entity.toLowerCase() === entityFilter.toLowerCase();
+    const matchesAction = actionFilter === "all" || normAction(e.action) === normAction(actionFilter);
+    const matchesEntity = entityFilter === "all" || normEntity(e.entity) === normEntity(entityFilter);
 
     return matchesSearch && matchesAction && matchesEntity;
   });

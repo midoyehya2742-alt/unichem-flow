@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import type {
+  Attachment,
   AuditEntry,
   CompanySettings,
   Customer,
@@ -9,6 +10,20 @@ import type {
   Product,
   User,
 } from "./types";
+
+const ATTACHMENTS_BUCKET = "deal-attachments";
+
+/** A file the user has staged for upload but not yet sent to Storage. */
+export interface PendingAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  file: File;
+}
+
+// Storage object keys must avoid spaces / unusual characters.
+const safeKey = (s: string) => s.replace(/[^a-zA-Z0-9._-]+/g, "_");
 
 interface DB {
   users: User[];
@@ -118,9 +133,9 @@ const fromDeal = (r: any, users: User[], customers: Customer[]): Deal => ({
   id: r.id,
   reference: r.reference,
   salesmanId: r.salesman_id,
-  salesmanName: users.find(u => u.id === r.salesman_id)?.name || "Unknown",
+  salesmanName: r.salesman_name || users.find(u => u.id === r.salesman_id)?.name || "Unknown",
   customerId: r.customer_id,
-  customerName: customers.find(c => c.id === r.customer_id)?.name || "Unknown",
+  customerName: r.customer_name || customers.find(c => c.id === r.customer_id)?.name || "Unknown",
   lines: r.lines || [],
   subtotal: Number(r.subtotal || 0),
   discount: Number(r.discount || 0),
@@ -131,12 +146,18 @@ const fromDeal = (r: any, users: User[], customers: Customer[]): Deal => ({
   amountPaid: Number(r.amount_paid || 0),
   dealStatus: r.deal_status,
   notes: r.notes ?? undefined,
+  // finance_notes and attachments are stored as jsonb columns on the deal row
+  // (written by the create_deal_with_inventory RPC / updateDeal), using the app's shape.
   financeNotes: (r.finance_notes || []).map((n: any) => ({
-    id: n.id, authorId: n.author_id, authorName: users.find(u => u.id === n.author_id)?.name || "Unknown",
-    text: n.text, createdAt: n.created_at
+    id: n.id,
+    authorId: n.authorId ?? n.author_id,
+    authorName: n.authorName ?? users.find(u => u.id === (n.authorId ?? n.author_id))?.name ?? "Unknown",
+    text: n.text,
+    createdAt: n.createdAt ?? n.created_at,
   })),
-  attachments: (r.deal_attachments || []).map((a: any) => ({
-    id: a.id, name: a.name, size: a.size, type: a.mime, dataUrl: a.storage_path
+  attachments: (r.attachments || []).map((a: any) => ({
+    id: a.id, name: a.name, size: a.size, type: a.type ?? a.mime,
+    path: a.path ?? undefined, dataUrl: a.dataUrl ?? undefined,
   })),
   dealDate: r.deal_date,
   expectedPaymentDate: r.expected_payment_date ?? undefined,
@@ -148,7 +169,9 @@ const toDeal = (d: Deal) => ({
   id: d.id,
   reference: d.reference,
   salesman_id: d.salesmanId,
+  salesman_name: d.salesmanName,
   customer_id: d.customerId,
+  customer_name: d.customerName,
   lines: d.lines,
   subtotal: d.subtotal,
   discount: d.discount,
@@ -159,6 +182,8 @@ const toDeal = (d: Deal) => ({
   amount_paid: d.amountPaid,
   deal_status: d.dealStatus,
   notes: d.notes ?? null,
+  finance_notes: d.financeNotes,
+  attachments: d.attachments,
   deal_date: d.dealDate,
   expected_payment_date: d.expectedPaymentDate ?? null,
   created_at: d.createdAt,
@@ -203,7 +228,7 @@ async function refreshAll() {
     supabase.from("profiles").select("*").order("created_at", { ascending: true }),
     supabase.from("customers").select("*").order("name", { ascending: true }),
     supabase.from("products").select("*").order("name", { ascending: true }),
-    supabase.from("deals").select("*, finance_notes(*), deal_attachments(*)").order("created_at", { ascending: false }),
+    supabase.from("deals").select("*").order("created_at", { ascending: false }),
     supabase.from("inventory_movements").select("*").order("created_at", { ascending: false }),
     supabase.from("audit_logs").select("*").order("created_at", { ascending: false }),
     supabase.from("company_settings").select("*").limit(1),
@@ -262,9 +287,8 @@ export const store = {
   listUsers: () => db.users,
   upsertUser(u: User, password?: string): Promise<void> | undefined {
     const exists = db.users.some((x) => x.id === u.id);
-    if (password && !exists) {
-      // New user: don't optimistically add (server assigns the real UUID); return a
-      // promise so the caller can await and surface any error to the user.
+    if (!exists) {
+      // New user
       return (async () => {
         const { error } = await supabase.rpc("create_app_user", {
           p_email: u.email,
@@ -278,14 +302,23 @@ export const store = {
         if (error) throw new Error(error.message);
         await refreshAll();
       })();
+    } else {
+      // Existing user
+      return (async () => {
+        const { error } = await supabase.rpc("update_app_user", {
+          p_user_id: u.id,
+          p_email: u.email,
+          p_password: password || null,
+          p_name: u.name,
+          p_role: u.role,
+          p_phone: u.phone ?? null,
+          p_department: null,
+          p_active: u.active,
+        });
+        if (error) throw new Error(error.message);
+        await refreshAll();
+      })();
     }
-    db.users = exists ? db.users.map((x) => (x.id === u.id ? u : x)) : [...db.users, u];
-    emit();
-    remote((async () => {
-      await supabase.from("profiles").upsert(toProfile(u));
-      await supabase.from("user_roles").delete().eq("user_id", u.id);
-      await supabase.from("user_roles").insert({ user_id: u.id, role: u.role });
-    })());
   },
   deleteUser(id: string) {
     db.users = db.users.filter((u) => u.id !== id);
@@ -352,24 +385,48 @@ export const store = {
     }, ...db.inventoryMovements];
     emit();
 
-    remote((async () => {
-      await supabase.from("inventory_movements").insert({
-        id: movementId,
-        product_id: productId,
-        movement_type: type,
-        quantity_before: before,
-        quantity_after: after,
-        quantity_changed: after - before,
-        reason: reason || null,
-        actor_id: actor.id,
-        created_at: now()
-      });
-      await supabase.from("products").update({ stock_quantity: after, updated_at: now() }).eq("id", productId);
-    })());
+    // Persist via the SECURITY DEFINER RPC: it validates the role, writes the
+    // movement (with product_name/actor_name) and updates stock atomically.
+    remote(supabase.rpc("adjust_inventory", {
+      p_product_id: productId,
+      p_quantity_after: after,
+      p_movement_type: type,
+      p_reason: reason || null,
+    }));
   },
 
   listDeals: () => db.deals.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
   getDeal: (id: string) => db.deals.find((d) => d.id === id),
+
+  // Upload staged files to the private deal-attachments bucket and return the
+  // Attachment metadata (with storage path) to embed in the deal.
+  async uploadDealFiles(dealId: string, files: PendingAttachment[]): Promise<Attachment[]> {
+    const out: Attachment[] = [];
+    for (const f of files) {
+      const path = `deals/${dealId}/${f.id}-${safeKey(f.name)}`;
+      const { error } = await supabase.storage
+        .from(ATTACHMENTS_BUCKET)
+        .upload(path, f.file, { contentType: f.type, upsert: false });
+      if (error) throw new Error(`${f.name}: ${error.message}`);
+      out.push({ id: f.id, name: f.name, size: f.size, type: f.type, path });
+    }
+    return out;
+  },
+  // Resolve a short-lived signed URL for an attachment. Falls back to the legacy
+  // inline data URL for older deals that stored attachments as base64.
+  async getAttachmentUrl(att: Attachment): Promise<string | null> {
+    if (att.path) {
+      const { data, error } = await supabase.storage
+        .from(ATTACHMENTS_BUCKET)
+        .createSignedUrl(att.path, 3600);
+      if (error) {
+        console.error(error);
+        return null;
+      }
+      return data?.signedUrl ?? null;
+    }
+    return att.dataUrl ?? null;
+  },
   createDeal(d: Deal, overrideStock = false) {
     if (!overrideStock) {
       const short = d.lines.find((line) => {
@@ -387,71 +444,23 @@ export const store = {
     });
     emit();
 
-    const doCreateDeal = async () => {
-      await supabase.from("deals").insert(toDeal(d));
-      // Deal attachments
-      if (d.attachments.length > 0) {
-        await supabase.from("deal_attachments").insert(
-          d.attachments.map(a => ({
-            id: a.id,
-            deal_id: d.id,
-            name: a.name,
-            size: a.size,
-            mime: a.type,
-            storage_path: a.dataUrl, // in a real app, upload to storage and store path
-            uploaded_by: d.salesmanId,
-          }))
-        );
-      }
-      
-      // Update inventory based on deal
-      const movements = d.lines.map(line => {
-        const p = db.products.find((x) => x.id === line.productId);
-        const before = p?.stockQuantity || 0;
-        return {
-          product_id: line.productId,
-          movement_type: overrideStock ? "override-sale" : "sale",
-          quantity_before: before,
-          quantity_after: Math.max(0, before - line.quantity),
-          quantity_changed: -line.quantity,
-          deal_id: d.id,
-          actor_id: d.salesmanId,
-        };
-      });
-      
-      for (const m of movements) {
-        await supabase.from("inventory_movements").insert(m);
-        await supabase.from("products").update({ stock_quantity: m.quantity_after }).eq("id", m.product_id);
-      }
-    };
-    remote(doCreateDeal());
+    // Persist via the SECURITY DEFINER RPC: it re-validates stock/role server-side,
+    // inserts the deal, decrements stock, writes inventory movements and the audit
+    // log atomically. This is the only path that lets a salesman decrement product
+    // stock, since direct UPDATEs on products are restricted to finance/admin by RLS.
+    remote(supabase.rpc("create_deal_with_inventory", {
+      p_deal: toDeal(d),
+      p_override_stock: overrideStock,
+    }));
   },
-  updateDeal(d: Deal, actor: User) {
-    const prev = db.deals.find(x => x.id === d.id);
+  updateDeal(d: Deal, _actor: User) {
     const next = { ...d, updatedAt: now() };
     db.deals = db.deals.map((x) => (x.id === d.id ? next : x));
     emit();
 
-    const doUpdateDeal = async () => {
-      await supabase.from("deals").update(toDeal(next)).eq("id", d.id);
-      
-      // Handle new finance notes
-      if (prev) {
-        const newNotes = d.financeNotes.filter(n => !prev.financeNotes.find(pn => pn.id === n.id));
-        if (newNotes.length > 0) {
-          await supabase.from("finance_notes").insert(
-            newNotes.map(n => ({
-              id: n.id,
-              deal_id: d.id,
-              author_id: n.authorId,
-              text: n.text,
-              created_at: n.createdAt
-            }))
-          );
-        }
-      }
-    };
-    remote(doUpdateDeal());
+    // finance_notes and attachments are persisted as jsonb columns via toDeal();
+    // finance/admin update access is enforced by the "deals update" RLS policy.
+    remote(supabase.from("deals").update(toDeal(next)).eq("id", d.id));
   },
 
   listAudit: () => db.audit.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),

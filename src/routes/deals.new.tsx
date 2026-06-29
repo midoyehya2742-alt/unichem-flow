@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { newId, nextRef, nowIso, useDb } from "@/lib/store";
+import { newId, nextRef, nowIso, useDb, type PendingAttachment } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ import { Plus, Trash2, Paperclip, X, AlertTriangle, FileCheck } from "lucide-rea
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { formatEGP } from "@/lib/format";
-import type { Attachment, Customer, DealLine } from "@/lib/types";
+import type { Customer, DealLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -51,9 +51,10 @@ function NewDeal() {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(settings.defaultTax);
   const [notes, setNotes] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [overrideStock, setOverrideStock] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Auto-load draft on mount
@@ -134,10 +135,10 @@ function NewDeal() {
     updateLine(i, { productId: p.id, productName: p.name, unitPrice: p.defaultPrice });
   };
 
-  const processFiles = async (fileList: FileList | null) => {
+  const processFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     const accepted = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
-    const next: Attachment[] = [];
+    const next: PendingAttachment[] = [];
     for (const f of Array.from(fileList)) {
       if (!accepted.includes(f.type)) {
         toast.error(`${f.name}: Only PDF, JPG, PNG allowed`);
@@ -147,20 +148,15 @@ function NewDeal() {
         toast.error(`${f.name}: Exceeds 10MB limit`);
         continue;
       }
-      const dataUrl: string = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result as string);
-        r.onerror = rej;
-        r.readAsDataURL(f);
-      });
-      next.push({ id: newId(), name: f.name, size: f.size, type: f.type, dataUrl });
+      // Keep the raw File; it is uploaded to Storage on submit (once we have a deal id).
+      next.push({ id: newId(), name: f.name, size: f.size, type: f.type, file: f });
     }
     setAttachments((p) => [...p, ...next]);
-    toast.success(`${next.length} attachment(s) added`);
+    if (next.length) toast.success(`${next.length} attachment(s) added`);
   };
 
-  const submit = () => {
-    if (!user) return;
+  const submit = async () => {
+    if (!user || submitting) return;
     if (!customerId) return toast.error("Please select a customer");
     if (!lines.length || lines.some((l) => !l.productId || l.quantity <= 0)) {
       return toast.error("Please add at least one line item with valid product and quantity");
@@ -170,9 +166,13 @@ function NewDeal() {
     }
     const customer = customers.find((c) => c.id === customerId)!;
     const ref = nextRef();
+    const dealId = newId();
+    setSubmitting(true);
     try {
+      // Upload attachments to Storage first so the deal stores their paths.
+      const uploaded = attachments.length ? await db.uploadDealFiles(dealId, attachments) : [];
       db.createDeal({
-        id: newId(),
+        id: dealId,
         reference: ref,
         salesmanId: user.id,
         salesmanName: user.name,
@@ -189,18 +189,20 @@ function NewDeal() {
         dealStatus: "pending",
         notes,
         financeNotes: [],
-        attachments,
+        attachments: uploaded,
         dealDate: new Date(dealDate).toISOString(),
         expectedPaymentDate: expectedPaymentDate ? new Date(expectedPaymentDate).toISOString() : undefined,
         createdAt: nowIso(),
         updatedAt: nowIso(),
       }, user.role === "admin" && overrideStock);
-      
+
       clearDraft();
       toast.success(`Deal ${ref} submitted successfully!`);
       navigate({ to: "/deals" });
     } catch (error: any) {
       toast.error(error.message || "Error submitting transaction record");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -494,7 +496,7 @@ function NewDeal() {
               </div>
 
               <div className="space-y-2 pt-2">
-                <Button className="w-full shadow-lg shadow-indigo-600/10" onClick={submit}>
+                <Button className="w-full shadow-lg shadow-indigo-600/10" onClick={submit} disabled={submitting}>
                   <FileCheck className="h-4 w-4 me-2" /> {t("deals.route_to_ledger")}
                 </Button>
                 <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: "/deals" })}>

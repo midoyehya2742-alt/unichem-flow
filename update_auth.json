@@ -1,0 +1,4 @@
+{
+  "site_url": "https://unichem-flow.vercel.app",
+  "uri_allow_list": "https://unichem-flow.vercel.app/*,http://localhost:8080/*,http://localhost:3000/*"
+}

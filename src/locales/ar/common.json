@@ -250,7 +250,8 @@
     "phone": "رقم الهاتف",
     "email": "البريد الإلكتروني",
     "billing_address": "عنوان إرسال الفواتير",
-    "save_record": "حفظ السجل"
+    "save_record": "حفظ السجل",
+    "attachment_unavailable": "المرفق غير متاح"
   },
   "products": {
     "title": "كتالوج المنتجات",

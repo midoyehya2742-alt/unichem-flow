@@ -250,7 +250,8 @@
     "phone": "Phone",
     "email": "Email Address",
     "billing_address": "Billing Address",
-    "save_record": "Save record"
+    "save_record": "Save record",
+    "attachment_unavailable": "Attachment is unavailable"
   },
   "products": {
     "title": "Product Catalog",

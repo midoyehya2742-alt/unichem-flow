@@ -287,11 +287,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300">
       {/* Desktop Sidebar wrapper */}
-      <div className={cn("hidden md:block transition-all duration-300 shrink-0", sidebarCollapsed ? "w-16" : "w-64")}>
+      <aside className={cn("hidden md:block transition-all duration-300 shrink-0 print:hidden", sidebarCollapsed ? "w-16" : "w-64")}>
         <div className="fixed top-0 bottom-0 z-20 h-full w-inherit">
           {SidebarContent}
         </div>
-      </div>
+      </aside>
 
       {/* Mobile Drawer */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -303,7 +303,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main Panel */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Sticky Header */}
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 sm:px-6">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 sm:px-6 print:hidden">
           <div className="flex items-center gap-3">
             {/* Sidebar toggle triggers */}
             <button
@@ -440,7 +440,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content Panel */}
-        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60">
+        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 print:bg-white print:min-h-0 print:overflow-visible">
           {children}
         </main>
       </div>

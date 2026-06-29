@@ -201,20 +201,22 @@ function DealDetails() {
               </CardHeader>
               <CardContent className="grid sm:grid-cols-2 gap-3">
                 {deal.attachments.map((a) => (
-                  <a
+                  <button
                     key={a.id}
-                    href={a.dataUrl}
-                    download={a.name}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-3 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition group"
+                    type="button"
+                    onClick={async () => {
+                      const url = await db.getAttachmentUrl(a);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      else toast.error(t("deals.attachment_unavailable"));
+                    }}
+                    className="flex items-center gap-3 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition group text-start w-full"
                   >
                     <Paperclip className="h-4.5 w-4.5 text-slate-400 group-hover:text-indigo-500 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{a.name}</div>
                       <div className="text-[10px] text-slate-400 mt-0.5">{(a.size / 1024).toFixed(0)} KB</div>
                     </div>
-                  </a>
+                  </button>
                 ))}
               </CardContent>
             </Card>
