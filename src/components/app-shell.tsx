@@ -72,8 +72,78 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [historyList, setHistoryList] = useState<string[]>([]);
   
-  // Clean, production-ready notification state starting with no notifications (or a system welcome for the first admin)
-  const [notifications, setNotifications] = useState<SysNotification[]>([]);
+  // Read-state for notifications, persisted per user
+  const seenKey = user ? `unichem-notif-seen-${user.id}` : "";
+  const [seenIds, setSeenIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!seenKey) return;
+    try {
+      const raw = localStorage.getItem(seenKey);
+      setSeenIds(raw ? JSON.parse(raw) : []);
+    } catch { setSeenIds([]); }
+  }, [seenKey]);
+
+  // Derive notifications from edit-request state on deals
+  const deals = user ? db.listDeals() : [];
+  const notifications: SysNotification[] = (() => {
+    if (!user) return [];
+    const out: SysNotification[] = [];
+    const fmt = (iso: string) => {
+      const d = new Date(iso);
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return d.toLocaleDateString();
+    };
+    for (const d of deals) {
+      const er = d.editRequest;
+      if (!er) continue;
+      if ((user.role === "admin" || user.role === "finance") && er.status === "pending") {
+        const id = `edit-req:${d.id}:${er.requestedAt}`;
+        out.push({
+          id,
+          title: `Edit request · ${d.reference}`,
+          desc: `${er.requestedByName} requested to edit deal ${d.reference}.`,
+          time: fmt(er.requestedAt),
+          type: "warning",
+          read: seenIds.includes(id),
+        });
+      }
+      if (user.role === "salesman" && er.requestedBy === user.id && (er.status === "approved" || er.status === "rejected") && er.reviewedAt) {
+        const id = `edit-res:${d.id}:${er.reviewedAt}:${er.status}`;
+        out.push({
+          id,
+          title: `Edit ${er.status} · ${d.reference}`,
+          desc: `${er.reviewedByName || "Finance"} ${er.status} your edit request for ${d.reference}.`,
+          time: fmt(er.reviewedAt),
+          type: er.status === "approved" ? "success" : "error",
+          read: seenIds.includes(id),
+        });
+      }
+    }
+    return out.sort((a, b) => b.id.localeCompare(a.id));
+  })();
+
+  // Toast on new unread notifications
+  const [toastedIds, setToastedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user) return;
+    const fresh = notifications.filter((n) => !n.read && !toastedIds.has(n.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((n) => {
+      if (n.type === "success") toast.success(n.title, { description: n.desc });
+      else if (n.type === "error") toast.error(n.title, { description: n.desc });
+      else toast(n.title, { description: n.desc });
+    });
+    setToastedIds((prev) => {
+      const next = new Set(prev);
+      fresh.forEach((n) => next.add(n.id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications.map((n) => n.id).join("|"), user?.id]);
+
 
   const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
