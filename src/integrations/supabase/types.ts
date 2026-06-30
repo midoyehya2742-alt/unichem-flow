@@ -491,6 +491,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_finance: { Args: never; Returns: boolean }
+      request_deal_edit: { Args: { p_deal_id: string }; Returns: undefined }
       update_app_user: {
         Args: {
           p_active?: boolean
