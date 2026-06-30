@@ -194,9 +194,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const ids = notifications.map((n) => n.id);
+    setSeenIds(ids);
+    if (seenKey) localStorage.setItem(seenKey, JSON.stringify(ids));
     toast.success(t("shell.all_read"));
   };
+
+  const markRead = (id: string) => {
+    setSeenIds((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      if (seenKey) localStorage.setItem(seenKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
 
   const getBreadcrumbs = () => {
     const parts = pathname.split("/").filter(Boolean);
