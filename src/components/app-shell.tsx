@@ -464,8 +464,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                         error: AlertCircle,
                         info: Sparkles
                       }[n.type];
+                      const dealId = n.id.split(":")[1];
                       return (
-                        <div key={n.id} className={cn("p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-indigo-50/20 dark:bg-indigo-950/10" : "")}>
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            markRead(n.id);
+                            if (dealId) navigate({ to: "/deals/$id", params: { id: dealId } });
+                          }}
+                          className={cn("w-full text-left p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-indigo-50/20 dark:bg-indigo-950/10" : "")}>
+
                           <div className={cn("mt-0.5 rounded-full p-1 h-7 w-7 grid place-items-center shrink-0", 
                             n.type === "success" && "bg-emerald-500/10 text-emerald-500",
                             n.type === "warning" && "bg-amber-500/10 text-amber-500",
