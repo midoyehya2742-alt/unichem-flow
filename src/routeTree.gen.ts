@@ -21,8 +21,8 @@ import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DealsIndexRouteImport } from './routes/deals.index'
 import { Route as DealsNewRouteImport } from './routes/deals.new'
-import { Route as DealsEditRouteImport } from './routes/deals..edit'
 import { Route as DealsIdRouteImport } from './routes/deals.$id'
+import { Route as DealsIdEditRouteImport } from './routes/deals.$id_.edit'
 
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
@@ -84,14 +84,14 @@ const DealsNewRoute = DealsNewRouteImport.update({
   path: '/deals/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DealsEditRoute = DealsEditRouteImport.update({
-  id: '/deals/edit',
-  path: '/deals/edit',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DealsIdRoute = DealsIdRouteImport.update({
   id: '/deals/$id',
   path: '/deals/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealsIdEditRoute = DealsIdEditRouteImport.update({
+  id: '/deals/$id_/edit',
+  path: '/deals/$id/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -107,9 +107,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/deals/$id': typeof DealsIdRoute
-  '/deals/edit': typeof DealsEditRoute
   '/deals/new': typeof DealsNewRoute
   '/deals/': typeof DealsIndexRoute
+  '/deals/$id/edit': typeof DealsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -123,9 +123,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/deals/$id': typeof DealsIdRoute
-  '/deals/edit': typeof DealsEditRoute
   '/deals/new': typeof DealsNewRoute
   '/deals': typeof DealsIndexRoute
+  '/deals/$id/edit': typeof DealsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -140,9 +140,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/users': typeof UsersRoute
   '/deals/$id': typeof DealsIdRoute
-  '/deals/edit': typeof DealsEditRoute
   '/deals/new': typeof DealsNewRoute
   '/deals/': typeof DealsIndexRoute
+  '/deals/$id_/edit': typeof DealsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -158,9 +158,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/deals/$id'
-    | '/deals/edit'
     | '/deals/new'
     | '/deals/'
+    | '/deals/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -174,9 +174,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/deals/$id'
-    | '/deals/edit'
     | '/deals/new'
     | '/deals'
+    | '/deals/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -190,9 +190,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/deals/$id'
-    | '/deals/edit'
     | '/deals/new'
     | '/deals/'
+    | '/deals/$id_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -207,9 +207,9 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   UsersRoute: typeof UsersRoute
   DealsIdRoute: typeof DealsIdRoute
-  DealsEditRoute: typeof DealsEditRoute
   DealsNewRoute: typeof DealsNewRoute
   DealsIndexRoute: typeof DealsIndexRoute
+  DealsIdEditRoute: typeof DealsIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -298,18 +298,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DealsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/deals/edit': {
-      id: '/deals/edit'
-      path: '/deals/edit'
-      fullPath: '/deals/edit'
-      preLoaderRoute: typeof DealsEditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/deals/$id': {
       id: '/deals/$id'
       path: '/deals/$id'
       fullPath: '/deals/$id'
       preLoaderRoute: typeof DealsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deals/$id_/edit': {
+      id: '/deals/$id_/edit'
+      path: '/deals/$id/edit'
+      fullPath: '/deals/$id/edit'
+      preLoaderRoute: typeof DealsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -327,9 +327,9 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   UsersRoute: UsersRoute,
   DealsIdRoute: DealsIdRoute,
-  DealsEditRoute: DealsEditRoute,
   DealsNewRoute: DealsNewRoute,
   DealsIndexRoute: DealsIndexRoute,
+  DealsIdEditRoute: DealsIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

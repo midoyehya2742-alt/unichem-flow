@@ -73,46 +73,7 @@ function AuthPage() {
   };
 
   // ─── Sign Up ────────────────────────────────────────────────────
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) { toast.error("Full name is required"); return; }
-    if (!email.trim()) { toast.error("Email address is required"); return; }
-    if (!password) { toast.error("Password is required"); return; }
-    if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (password !== confirmPassword) { toast.error("Passwords do not match — please re-enter"); return; }
-
-    setBusy(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: {
-            name: name.trim(),
-            phone: phone.trim() || null,
-          },
-        },
-      });
-
-      if (error) {
-        toast.error(error.message || "Registration failed. Please try again.");
-        return;
-      }
-
-      if (data?.user) {
-        toast.success("Account created! You can now sign in.", { duration: 5000 });
-        setActiveTab("signin");
-        setPassword("");
-        setConfirmPassword("");
-        setName("");
-        setPhone("");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Registration failed. Please contact your administrator.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Removed sign up logic
 
   // ─── Forgot Password ────────────────────────────────────────────
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -244,13 +205,11 @@ function AuthPage() {
             <CardHeader className="space-y-2 pb-6 px-6 sm:px-8 pt-8">
               <CardTitle className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {activeTab === "signin" && "Welcome back"}
-                {activeTab === "signup" && "Create account"}
                 {activeTab === "forgot" && "Reset password"}
                 {activeTab === "reset" && "Set new password"}
               </CardTitle>
               <CardDescription className="text-base text-slate-500 dark:text-slate-400 font-medium">
                 {activeTab === "signin" && "Sign in to your account to continue"}
-                {activeTab === "signup" && "Register as a company employee"}
                 {activeTab === "forgot" && "We'll email you a secure recovery link"}
                 {activeTab === "reset" && "Enter a new password for your account"}
               </CardDescription>
@@ -361,158 +320,58 @@ function AuthPage() {
                 </form>
               )}
 
-              {/* ── Sign In / Sign Up Tabs ── */}
-              {(activeTab === "signin" || activeTab === "signup") && (
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-                  <TabsList className="grid grid-cols-2 mb-6">
-                    <TabsTrigger value="signin" className="flex items-center gap-2">
-                      <LogIn className="h-3.5 w-3.5" /> Sign In
-                    </TabsTrigger>
-                    <TabsTrigger value="signup" className="flex items-center gap-2">
-                      <UserPlus className="h-3.5 w-3.5" /> Sign Up
-                    </TabsTrigger>
-                  </TabsList>
+              {/* ── Sign In Form ── */}
+              {activeTab === "signin" && (
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signin-email">Work Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        id="signin-email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@unichem.local"
+                        className="pl-10 h-11"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
 
-                  {/* ── Sign In Tab ── */}
-                  <TabsContent value="signin">
-                    <form onSubmit={handleSignIn} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signin-email">Work Email</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                          <Input
-                            id="signin-email"
-                            type="email"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@unichem.local"
-                            className="pl-10 h-11"
-                            autoComplete="email"
-                          />
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password">Password</Label>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("forgot")}
+                        className="text-xs text-indigo-500 hover:text-indigo-600 transition"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="h-11 pr-10"
+                        autoComplete="current-password"
+                      />
+                      <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="signin-password">Password</Label>
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab("forgot")}
-                            className="text-xs text-indigo-500 hover:text-indigo-600 transition"
-                          >
-                            Forgot password?
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <Input
-                            id="signin-password"
-                            type={showPassword ? "text" : "password"}
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="h-11 pr-10"
-                            autoComplete="current-password"
-                          />
-                          <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <Button type="submit" disabled={busy} className="w-full h-11">
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-                        Access Console
-                      </Button>
-                    </form>
-                  </TabsContent>
-
-                  {/* ── Sign Up Tab ── */}
-                  <TabsContent value="signup">
-                    <form onSubmit={handleSignUp} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-name">Full Name</Label>
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          required
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="John Doe"
-                          className="h-11"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-email">Work Email</Label>
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          required
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="name@unichem.local"
-                          className="h-11"
-                          autoComplete="email"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="signup-phone">Phone Number <span className="text-slate-400 font-normal">(Optional)</span></Label>
-                        <Input
-                          id="signup-phone"
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          placeholder="+20 123 456 7890"
-                          className="h-11"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="signup-password">Password</Label>
-                          <div className="relative">
-                            <Input
-                              id="signup-password"
-                              type={showPassword ? "text" : "password"}
-                              required
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              className="h-11 pr-10"
-                              autoComplete="new-password"
-                            />
-                            <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="signup-confirm">Confirm</Label>
-                          <div className="relative">
-                            <Input
-                              id="signup-confirm"
-                              type={showConfirm ? "text" : "password"}
-                              required
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              className="h-11 pr-10"
-                              autoComplete="new-password"
-                            />
-                            <button type="button" tabIndex={-1} onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
-                              {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <Button type="submit" disabled={busy} className="w-full h-11 mt-2">
-                        {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
-                        Register Employee
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
+                  <Button type="submit" disabled={busy} className="w-full h-11">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRight className="h-4 w-4 mr-2" />}
+                    Access Console
+                  </Button>
+                </form>
               )}
             </CardContent>
           </Card>

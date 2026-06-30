@@ -24,15 +24,13 @@ import type { Customer, DealLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
-export const Route = createFileRoute("/deals/edit")({
-  head: () => ({ meta: [{ title: "New Deal — UniChem ERP" }] }),
-  component: () => <RequireAuth roles={["salesman", "admin"]}><NewDeal /></RequireAuth>,
+export const Route = createFileRoute("/deals/$id_/edit")({
+  head: () => ({ meta: [{ title: "Edit Deal — UniChem ERP" }] }),
+  component: () => <RequireAuth roles={["finance", "admin", "salesman"]}><EditDeal /></RequireAuth>,
 });
 
-const MAX_BYTES = 10 * 1024 * 1024;
-const DRAFT_KEY = "unichem-new-deal-draft";
-
-function NewDeal() {
+function EditDeal() {
+  const { id } = Route.useParams();
   const { user } = useAuth();
   const db = useDb();
   const navigate = useNavigate();
@@ -41,6 +39,24 @@ function NewDeal() {
   const customers = db.listCustomers();
   const products = db.listProducts();
   const settings = db.getSettings();
+  
+  const deal = db.getDeal(id);
+
+  // Guard: salesman can only edit approved deals
+  if (deal && user?.role === "salesman" && deal.dealStatus !== "approved") {
+    return (
+      <div className="p-8 text-center max-w-md mx-auto space-y-4">
+        <div className="h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center mx-auto">
+          <span className="text-2xl">🔒</span>
+        </div>
+        <h2 className="text-base font-bold text-slate-800 dark:text-white">Editing Not Available</h2>
+        <p className="text-xs text-slate-500">This deal must be <strong>approved by finance or an admin</strong> before you can edit it. Its current status is <strong className="capitalize">{deal.dealStatus}</strong>.</p>
+        <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: `/deals/${id}` })}>
+          ← Back to Deal
+        </Button>
+      </div>
+    );
+  }
 
   const [customerId, setCustomerId] = useState("");
   const [dealDate, setDealDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -51,45 +67,39 @@ function NewDeal() {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(settings.defaultTax);
   const [notes, setNotes] = useState("");
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [paymentType, setPaymentType] = useState<"immediate" | "installments">("immediate");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "cheques">("cash");
+  const [paymentInfo, setPaymentInfo] = useState("");
+  const [immediateAmount, setImmediateAmount] = useState<number>(0);
+  const [cheques, setCheques] = useState<{ id: string; amount: number; dueDate: string }[]>([]);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
   const [overrideStock, setOverrideStock] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [amountPaid, setAmountPaid] = useState(0);
 
-  // Auto-load draft on mount
+  const [initialized, setInitialized] = useState(false);
+
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(DRAFT_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setCustomerId(parsed.customerId || "");
-        setDealDate(parsed.dealDate || new Date().toISOString().slice(0, 10));
-        setExpectedPaymentDate(parsed.expectedPaymentDate || "");
-        setLines(parsed.lines || [{ productId: "", productName: "", quantity: 1, unitPrice: 0, discount: 0 }]);
-        setDiscount(parsed.discount || 0);
-        setTax(parsed.tax ?? settings.defaultTax);
-        setNotes(parsed.notes || "");
-        toast.info("Draft restored from local session");
-      }
-    } catch (e) {
-      console.error("Failed to restore draft", e);
+    if (deal && !initialized) {
+      setCustomerId(deal.customerId || "");
+      setDealDate(deal.dealDate ? new Date(deal.dealDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      setExpectedPaymentDate(deal.expectedPaymentDate ? new Date(deal.expectedPaymentDate).toISOString().slice(0, 10) : "");
+      setLines(deal.lines?.length ? deal.lines : [{ productId: "", productName: "", quantity: 1, unitPrice: 0, discount: 0 }]);
+      setDiscount(deal.discount || 0);
+      setTax(deal.tax ?? settings.defaultTax);
+      setNotes(deal.notes || "");
+      setPaymentType(deal.paymentType || "immediate");
+      setPaymentMethod(deal.paymentMethod || "cash");
+      setPaymentInfo(deal.paymentInfo || "");
+      setImmediateAmount(deal.immediateAmount || 0);
+      setCheques(deal.cheques || []);
+      setAmountPaid(deal.amountPaid || 0);
+      setInitialized(true);
     }
-  }, [settings.defaultTax]);
+  }, [deal, initialized, settings.defaultTax]);
 
-  // Auto-save draft on form edits
-  const saveDraft = () => {
-    try {
-      const draft = { customerId, dealDate, expectedPaymentDate, lines, discount, tax, notes };
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    } catch (e) {
-      console.error("Failed to save draft", e);
-    }
-  };
-
-  const clearDraft = () => {
-    localStorage.removeItem(DRAFT_KEY);
-  };
+  const saveDraft = () => {};
+  const clearDraft = () => {};
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
@@ -135,28 +145,20 @@ function NewDeal() {
     updateLine(i, { productId: p.id, productName: p.name, unitPrice: p.defaultPrice });
   };
 
-  const processFiles = (fileList: FileList | null) => {
-    if (!fileList) return;
-    const accepted = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
-    const next: PendingAttachment[] = [];
-    for (const f of Array.from(fileList)) {
-      if (!accepted.includes(f.type)) {
-        toast.error(`${f.name}: Only PDF, JPG, PNG allowed`);
-        continue;
-      }
-      if (f.size > MAX_BYTES) {
-        toast.error(`${f.name}: Exceeds 10MB limit`);
-        continue;
-      }
-      // Keep the raw File; it is uploaded to Storage on submit (once we have a deal id).
-      next.push({ id: newId(), name: f.name, size: f.size, type: f.type, file: f });
-    }
-    setAttachments((p) => [...p, ...next]);
-    if (next.length) toast.success(`${next.length} attachment(s) added`);
+  const addCheque = () => {
+    setCheques((prev) => [...prev, { id: newId(), amount: 0, dueDate: "" }]);
+  };
+
+  const removeCheque = (id: string) => {
+    setCheques((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const updateCheque = (id: string, patch: any) => {
+    setCheques((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
   const submit = async () => {
-    if (!user || submitting) return;
+    if (!user || submitting || !deal) return;
     if (!customerId) return toast.error("Please select a customer");
     if (!lines.length || lines.some((l) => !l.productId || l.quantity <= 0)) {
       return toast.error("Please add at least one line item with valid product and quantity");
@@ -165,17 +167,22 @@ function NewDeal() {
       return toast.error("Cannot submit deal: Insufficient inventory.");
     }
     const customer = customers.find((c) => c.id === customerId)!;
-    const ref = nextRef();
-    const dealId = newId();
     setSubmitting(true);
     try {
-      // Upload attachments to Storage first so the deal stores their paths.
-      const uploaded = attachments.length ? await db.uploadDealFiles(dealId, attachments) : [];
-      db.createDeal({
-        id: dealId,
-        reference: ref,
-        salesmanId: user.id,
-        salesmanName: user.name,
+      let finalAmountPaid = amountPaid;
+      let finalPaymentStatus: "paid" | "partial" | "unpaid" = deal.paymentStatus;
+      
+      // Basic recalculation if total changed
+      if (totals.total > 0 && finalAmountPaid >= totals.total) {
+        finalPaymentStatus = "paid";
+      } else if (finalAmountPaid > 0) {
+        finalPaymentStatus = "partial";
+      } else {
+        finalPaymentStatus = "unpaid";
+      }
+
+      const updatedDeal = {
+        ...deal,
         customerId: customer.id,
         customerName: customer.name,
         lines,
@@ -183,36 +190,37 @@ function NewDeal() {
         discount,
         tax,
         total: totals.total,
-        currency: "EGP",
-        paymentStatus: "unpaid",
-        amountPaid: 0,
-        dealStatus: "pending",
         notes,
-        financeNotes: [],
-        attachments: uploaded,
+        paymentType,
+        paymentMethod,
+        paymentInfo,
+        immediateAmount: paymentType === "installments" ? immediateAmount : undefined,
+        cheques: paymentType === "installments" && paymentMethod === "cheques" ? cheques : undefined,
         dealDate: new Date(dealDate).toISOString(),
         expectedPaymentDate: expectedPaymentDate ? new Date(expectedPaymentDate).toISOString() : undefined,
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      }, user.role === "admin" && overrideStock);
+        paymentStatus: finalPaymentStatus,
+      };
 
-      clearDraft();
-      toast.success(`Deal ${ref} submitted successfully!`);
-      navigate({ to: "/deals" });
+      await db.updateDealFull(deal, updatedDeal, overrideStock);
+
+      toast.success(`Deal ${deal.reference} updated successfully!`);
+      navigate({ to: `/deals/${deal.id}` });
     } catch (error: any) {
-      toast.error(error.message || "Error submitting transaction record");
+      toast.error(error.message || "Error updating transaction record");
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (!deal) return <div className="p-8 text-center">Loading deal...</div>;
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 font-sans">
       <PageHeader
-        title={t("deals.new_title")}
-        description={t("deals.new_desc")}
+        title="Edit Deal"
+        description="Modify an existing deal record"
         actions={
-          <Button variant="outline" size="sm" onClick={() => { clearDraft(); navigate({ to: "/deals" }); }} className="h-9 text-xs">
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: `/deals/${id}` })} className="h-9 text-xs">
             {t("common.actions.cancel")}
           </Button>
         }
@@ -378,57 +386,113 @@ function NewDeal() {
             </CardContent>
           </Card>
 
-          {/* Attachments & Notes */}
+          {/* Payment Method & Notes */}
           <div className="grid sm:grid-cols-2 gap-5">
             <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">{t("deals.step3_title")}</CardTitle>
-                <CardDescription className="text-[10px]">{t("deals.step3_desc")}</CardDescription>
+                <CardTitle className="text-sm font-bold">3. Payment Method</CardTitle>
+                <CardDescription className="text-[10px]">Select payment terms and provide details</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={(e) => { e.preventDefault(); setIsDragOver(false); processFiles(e.dataTransfer.files); }}
-                  className={cn(
-                    "flex flex-col items-center justify-center border-2 border-dashed rounded-xl py-6 cursor-pointer transition text-center",
-                    isDragOver 
-                      ? "border-indigo-500 bg-indigo-500/5" 
-                      : "border-slate-200 dark:border-slate-800 hover:bg-slate-100/50 dark:hover:bg-slate-800/30"
-                  )}
-                >
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/*"
-                    multiple
-                    className="hidden"
-                    id="file-upload"
-                    onChange={(e) => processFiles(e.target.files)}
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer space-y-1">
-                    <Paperclip className="h-6 w-6 text-slate-400 mx-auto" />
-                    <div className="text-xs font-semibold text-indigo-500">{t("deals.upload_attachment")}</div>
-                    <div className="text-[10px] text-slate-400">{t("deals.or_drag_drop")}</div>
-                  </label>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Payment Type</Label>
+                  <Select value={paymentType} onValueChange={(val: any) => { setPaymentType(val); setTimeout(saveDraft, 0); }}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="immediate">Immediate Payment</SelectItem>
+                      <SelectItem value="installments">Installments</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {attachments.length > 0 && (
-                  <ul className="space-y-1.5 pt-2">
-                    {attachments.map((a) => (
-                      <li key={a.id} className="flex items-center justify-between text-xs border rounded-lg px-3 py-1.5 bg-slate-50 dark:bg-slate-900">
-                        <span className="truncate font-medium flex-1 mr-2">{a.name}</span>
-                        <span className="text-[10px] text-slate-400 mr-2">({(a.size / 1024).toFixed(0)} KB)</span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setAttachments((p) => p.filter((x) => x.id !== a.id))}
-                          className="h-6 w-6 text-rose-500"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Payment Method</Label>
+                  <Select value={paymentMethod} onValueChange={(val: any) => { setPaymentMethod(val); setTimeout(saveDraft, 0); }}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="cheques">Cheques</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-slate-500">Payment Details (e.g. Bank, Customer Info)</Label>
+                  <Textarea
+                    rows={2}
+                    placeholder="Enter payment details..."
+                    value={paymentInfo}
+                    onChange={(e) => { setPaymentInfo(e.target.value); setTimeout(saveDraft, 0); }}
+                    className="text-xs placeholder-slate-400 focus-visible:ring-indigo-500 resize-none"
+                  />
+                </div>
+
+                {paymentType === "installments" && (
+                  <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-500">Immediate Down Payment</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={immediateAmount}
+                        onChange={(e) => { setImmediateAmount(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+
+                    {paymentMethod === "cheques" && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-slate-500">Post-dated Cheques</Label>
+                          <Button size="sm" variant="outline" onClick={addCheque} className="h-7 text-[10px]">
+                            <Plus className="h-3 w-3 mr-1" /> Add Cheque
+                          </Button>
+                        </div>
+                        {cheques.length === 0 ? (
+                          <div className="text-center text-[10px] text-slate-400">No cheques added.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {cheques.map((c) => (
+                              <div key={c.id} className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  placeholder="Amount"
+                                  value={c.amount}
+                                  onChange={(e) => updateCheque(c.id, { amount: parseFloat(e.target.value) || 0 })}
+                                  className="h-8 text-xs w-24"
+                                />
+                                <Input
+                                  type="date"
+                                  value={c.dueDate}
+                                  onChange={(e) => updateCheque(c.id, { dueDate: e.target.value })}
+                                  className="h-8 text-xs flex-1"
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => removeCheque(c.id)}
+                                  className="h-8 w-8 text-rose-500"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex justify-between text-[10px] text-slate-500">
+                          <span>Installment Sum:</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {formatEGP(immediateAmount + cheques.reduce((s, c) => s + c.amount, 0))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -488,18 +552,42 @@ function NewDeal() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-3 flex justify-between items-end">
-                <span className="text-xs text-slate-500">{t("deals.cleared_net")}</span>
-                <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
-                  {formatEGP(totals.total)}
-                </span>
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-3">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs text-slate-500">{t("deals.cleared_net")}</span>
+                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
+                    {formatEGP(totals.total)}
+                  </span>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-semibold text-slate-500">Amount Paid</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                    className="h-8 text-xs font-semibold"
+                  />
+                </div>
+
+                <div className="flex justify-between items-end pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                  <span className="text-[10px] font-semibold text-slate-500">Remaining Balance</span>
+                  <span className={cn(
+                    "text-sm font-bold tracking-tight",
+                    totals.total - amountPaid > 0 ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                  )}>
+                    {formatEGP(Math.max(0, totals.total - amountPaid))}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2 pt-2">
                 <Button className="w-full shadow-lg shadow-indigo-600/10" onClick={submit} disabled={submitting}>
-                  <FileCheck className="h-4 w-4 me-2" /> {t("deals.route_to_ledger")}
+                  <FileCheck className="h-4 w-4 me-2" /> Save Changes
                 </Button>
-                <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: "/deals" })}>
+                <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: `/deals/${id}` })}>
                   {t("deals.discard_entry")}
                 </Button>
               </div>

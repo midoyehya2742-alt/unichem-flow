@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, TrendingUp, Wallet, FileText, Clock, CheckCircle2, AlertTriangle, Users,
-  ArrowRight, ShieldCheck, ShoppingBag, Package, Sparkles, BarChart2, Zap
+  ArrowRight, ShieldCheck, ShoppingBag, Package, Sparkles, BarChart2, Zap, Edit2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,7 +38,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 15 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
 };
 
 function Dashboard() {
@@ -67,6 +67,9 @@ function Dashboard() {
   
   // Low Stock Alert calculations
   const lowStockProducts = products.filter((p) => p.stockQuantity <= p.minimumStockLevel);
+
+  // Pending Edit Requests calculations (for finance/admin)
+  const pendingEditRequests = deals.filter(d => d.editRequest?.status === "pending");
 
   // Status mapping
   const byStatus = [
@@ -146,6 +149,33 @@ function Dashboard() {
               {t("dashboard.audit_stock")}
             </Button>
           </Link>
+        </div>
+      )}
+
+      {/* Pending Edit Requests Banner (Finance/Admin) */}
+      {pendingEditRequests.length > 0 && (user?.role === "admin" || user?.role === "finance") && (
+        <div className="flex flex-col gap-3 p-4 bg-violet-500/10 border border-violet-500/20 text-violet-800 dark:text-violet-300 rounded-xl">
+          <div className="flex items-center gap-3">
+            <Edit2 className="h-5 w-5 text-violet-500 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold">Edit Requests Pending</span> — {pendingEditRequests.length} deal(s) await your review.
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+            {pendingEditRequests.map(deal => (
+              <div key={deal.id} className="flex items-center justify-between p-2 rounded-lg bg-white/50 dark:bg-black/20 border border-violet-500/10">
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-xs font-semibold truncate">{deal.reference}</span>
+                  <span className="text-[10px] opacity-70 truncate">{deal.editRequest?.requestedByName}</span>
+                </div>
+                <Link to={`/deals/${deal.id}`}>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 dark:text-violet-400">
+                    Review
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

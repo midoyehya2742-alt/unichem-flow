@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, AlertTriangle, MessageSquare, TrendingUp, Trash2 } from "lucide-react";
+import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, XCircle, AlertTriangle, Clock, MessageSquare, TrendingUp, Trash2, Edit2, Hourglass } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
@@ -50,7 +50,45 @@ function DealDetails() {
     );
   }
 
-  const canEditPayment = true; // anyone can edit deals now
+  const canApproveDeal = user?.role === "finance" || user?.role === "admin";
+  const isFinanceOrAdmin = user?.role === "finance" || user?.role === "admin";
+  const isSalesman = user?.role === "salesman";
+  const canEditPayment = isFinanceOrAdmin;
+
+  const editReq = deal.editRequest;
+  const myEditRequest = isSalesman && editReq?.requestedBy === user?.id ? editReq : undefined;
+
+  const handleAccept = () => {
+    if (!user) return;
+    const updated = { ...deal, dealStatus: "approved" as const, updatedAt: nowIso() };
+    db.updateDeal(updated, user);
+    toast.success(`Deal ${deal.reference} approved!`);
+  };
+
+  const handleReject = () => {
+    if (!user) return;
+    const updated = { ...deal, dealStatus: "rejected" as const, updatedAt: nowIso() };
+    db.updateDeal(updated, user);
+    toast.error(`Deal ${deal.reference} rejected.`);
+  };
+
+  const handleRequestEdit = () => {
+    if (!user) return;
+    db.requestEditDeal(deal.id, user);
+    toast.success("Edit request submitted! Finance will review it shortly.");
+  };
+
+  const handleApproveEdit = () => {
+    if (!user) return;
+    db.reviewEditRequest(deal.id, true, user);
+    toast.success(`Edit request for ${deal.reference} approved — salesman can now edit.`);
+  };
+
+  const handleRejectEdit = () => {
+    if (!user) return;
+    db.reviewEditRequest(deal.id, false, user);
+    toast.error(`Edit request for ${deal.reference} rejected.`);
+  };
 
   const savePayment = () => {
     if (!user) return;
@@ -88,8 +126,47 @@ function DealDetails() {
           <ArrowLeft className="h-4 w-4 me-1.5 rtl:rotate-180" /> {t("deals.back_to_ledger")}
         </Button>
         <div className="flex gap-2">
+          {/* Finance/Admin can always edit unless rejected */}
+          {isFinanceOrAdmin && deal.dealStatus !== "rejected" && (
+            <Button variant="outline" size="sm" onClick={() => navigate({ to: `/deals/${id}/edit` })} className="h-8 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-400 dark:border-indigo-800">
+              <TrendingUp className="h-4 w-4 me-2" /> Edit Deal
+            </Button>
+          )}
+          {/* Salesman edit request flow */}
+          {isSalesman && deal.dealStatus === "approved" && (
+            <>
+              {/* No pending request OR request was rejected → show Request Edit */}
+              {(!myEditRequest || myEditRequest.status === "rejected") && (
+                <Button variant="outline" size="sm" onClick={handleRequestEdit}
+                  className="h-8 text-xs bg-violet-50 text-violet-700 hover:bg-violet-100 border-violet-200 dark:bg-violet-950/30 dark:text-violet-400 dark:border-violet-800">
+                  <Edit2 className="h-4 w-4 me-2" /> Request Edit
+                </Button>
+              )}
+              {/* Request is pending → locked button */}
+              {myEditRequest?.status === "pending" && (
+                <Button variant="outline" size="sm" disabled
+                  className="h-8 text-xs opacity-70 cursor-not-allowed border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-700">
+                  <Hourglass className="h-4 w-4 me-2 animate-pulse" /> Edit Request Pending…
+                </Button>
+              )}
+              {/* Request is approved → go to edit */}
+              {myEditRequest?.status === "approved" && (
+                <Button variant="outline" size="sm" onClick={() => navigate({ to: `/deals/${id}/edit` })}
+                  className="h-8 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                  <Edit2 className="h-4 w-4 me-2" /> Edit Deal
+                </Button>
+              )}
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 text-xs">
             <Printer className="h-4 w-4 me-2 text-slate-500" /> {t("common.actions.print_invoice")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            setPaymentStatus(deal.paymentStatus ?? "unpaid");
+            setAmountPaid(deal.amountPaid ?? 0);
+            setNoteText("");
+          }} className="h-8 text-xs">
+            {t("common.actions.cancel")}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => {
             if (window.confirm("Are you sure you want to delete this deal?")) {
@@ -107,6 +184,86 @@ function DealDetails() {
         title={deal.reference}
         description={t("deals.submitted_by", { name: deal.salesmanName, date: new Date(deal.dealDate).toLocaleDateString() })}
       />
+
+      {/* Salesman: pending edit request banner */}
+      {isSalesman && myEditRequest?.status === "pending" && (
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-700 print:hidden">
+          <Hourglass className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0 animate-pulse" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-violet-800 dark:text-violet-300">Edit Request Submitted</p>
+            <p className="text-xs text-violet-700 dark:text-violet-400">Your request to edit this deal is awaiting review by Finance or Admin. You will be able to edit once it is approved.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Salesman: rejected edit request banner */}
+      {isSalesman && myEditRequest?.status === "rejected" && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 print:hidden">
+          <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+          <p className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+            Your edit request was rejected by <strong>{myEditRequest.reviewedByName}</strong>. You can submit a new request.
+          </p>
+        </div>
+      )}
+
+      {/* Finance/Admin: pending edit request review banner */}
+      {isFinanceOrAdmin && deal.editRequest?.status === "pending" && (
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-700 print:hidden">
+          <Edit2 className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-violet-800 dark:text-violet-300">Edit Request from Salesman</p>
+            <p className="text-xs text-violet-700 dark:text-violet-400">
+              <strong>{deal.editRequest.requestedByName}</strong> requested to edit this deal on {new Date(deal.editRequest.requestedAt).toLocaleString()}. Approve to allow editing.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" onClick={handleRejectEdit} variant="outline" className="h-8 text-xs border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400">
+              <XCircle className="h-4 w-4 me-1.5" /> Reject
+            </Button>
+            <Button size="sm" onClick={handleApproveEdit} className="h-8 text-xs bg-violet-600 hover:bg-violet-700 text-white">
+              <CheckCircle2 className="h-4 w-4 me-1.5" /> Approve Edit
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Banner — visible to finance/admin when deal is pending */}
+      {canApproveDeal && deal.dealStatus === "pending" && (
+        <div className="flex items-center gap-4 p-4 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 print:hidden">
+          <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Pending Your Review</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">This deal was submitted by <strong>{deal.salesmanName}</strong> and is awaiting approval before it can be processed.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" onClick={handleReject} variant="outline" className="h-8 text-xs border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-400">
+              <XCircle className="h-4 w-4 me-1.5" /> Reject
+            </Button>
+            <Button size="sm" onClick={handleAccept} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+              <CheckCircle2 className="h-4 w-4 me-1.5" /> Accept Deal
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Status banners for already-decided deals */}
+      {deal.dealStatus === "approved" && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 print:hidden">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">This deal has been approved and is active.</p>
+        </div>
+      )}
+      {deal.dealStatus === "rejected" && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 print:hidden">
+          <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+          <p className="text-xs font-semibold text-rose-700 dark:text-rose-400">This deal has been rejected. Editing is disabled.</p>
+          {canApproveDeal && (
+            <Button size="sm" onClick={handleAccept} variant="outline" className="ml-auto h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+              <CheckCircle2 className="h-3.5 w-3.5 me-1" /> Re-approve
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Modern Pipeline Timeline Stepper */}
       <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
@@ -365,18 +522,38 @@ function DealDetails() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 flex flex-col">
                   <Label className="text-[10px] font-semibold text-slate-500">{t("deals.receipt_deposit")}</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={amountPaid}
-                    onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                    className="h-9 text-xs"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={amountPaid}
+                      onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                      className="h-9 text-xs flex-1"
+                    />
+                    {deal.total - amountPaid > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                        onClick={() => {
+                          setAmountPaid(deal.total);
+                          setPaymentStatus("paid");
+                        }}
+                      >
+                        Pay Rest
+                      </Button>
+                    )}
+                  </div>
+                  {deal.total - amountPaid > 0 && (
+                    <div className="text-[10.5px] text-slate-500 text-right mt-1">
+                      Remaining to pay: <span className="font-bold text-rose-500">{formatEGP(deal.total - amountPaid)}</span>
+                    </div>
+                  )}
                 </div>
-                <Button className="w-full h-9 text-xs shadow-md shadow-emerald-500/10" onClick={savePayment}>
+                <Button className="w-full h-9 text-xs shadow-md shadow-emerald-500/10 mt-2" onClick={savePayment}>
                   {t("deals.commit_settlement")}
                 </Button>
               </CardContent>

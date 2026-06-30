@@ -57,6 +57,16 @@ export interface InventoryMovement {
 export type PaymentStatus = "unpaid" | "partial" | "paid";
 export type DealStatus = "pending" | "approved" | "rejected" | "delivered";
 
+export interface EditRequest {
+  requestedBy: string;
+  requestedByName: string;
+  requestedAt: string;
+  status: "pending" | "approved" | "rejected";
+  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedAt?: string;
+}
+
 export interface DealLine {
   productId: string;
   productName: string;
@@ -110,6 +120,7 @@ export interface Deal {
   expectedPaymentDate?: string;
   createdAt: string;
   updatedAt: string;
+  editRequest?: EditRequest;
 }
 
 export interface AuditEntry {

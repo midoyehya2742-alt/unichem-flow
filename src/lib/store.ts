@@ -7,6 +7,7 @@ import type {
   CompanySettings,
   Customer,
   Deal,
+  EditRequest,
   InventoryMovement,
   Product,
   User,
@@ -169,6 +170,7 @@ const fromDeal = (r: any, users: User[], customers: Customer[]): Deal => ({
   expectedPaymentDate: r.expected_payment_date ?? undefined,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
+  editRequest: r.edit_request ?? undefined,
 });
 
 const toDeal = (d: Deal) => ({
@@ -199,6 +201,7 @@ const toDeal = (d: Deal) => ({
   expected_payment_date: d.expectedPaymentDate ?? null,
   created_at: d.createdAt,
   updated_at: d.updatedAt,
+  edit_request: d.editRequest ?? null,
 });
 
 const fromMovement = (r: any, products: Product[], users: User[]): InventoryMovement => ({
@@ -511,7 +514,7 @@ export const store = {
     // finance/admin update access is enforced by the "deals update" RLS policy.
     remote(supabase.from("deals").update(toDeal(next)).eq("id", d.id));
   },
-  updateDealFull(oldDeal: Deal, newDeal: Deal) {
+  async updateDealFull(oldDeal: Deal, newDeal: Deal, overrideStock = false) {
     // 1. Revert old stock locally
     oldDeal.lines.forEach((line) => {
       const p = db.products.find((x) => x.id === line.productId);
@@ -532,11 +535,65 @@ export const store = {
     db.deals = db.deals.map((x) => (x.id === newDeal.id ? next : x));
     emit();
 
-    // Persist deal update to Supabase.
-    // NOTE: This will NOT write inventory_movements records in Supabase because
-    // there's no matching RPC for full deal update. It only updates the deal record.
-    remote(supabase.from("deals").update(toDeal(next)).eq("id", newDeal.id));
+    // Persist deal update to Supabase via the RPC that handles inventory adjustment.
+    const { error } = await supabase.rpc("update_deal_with_inventory", {
+      p_deal: toDeal(next),
+      p_override_stock: overrideStock,
+    });
+
+    if (error) {
+      // Revert local changes if error occurs
+      newDeal.lines.forEach((line) => {
+        const p = db.products.find((x) => x.id === line.productId);
+        if (p) {
+          p.stockQuantity += line.quantity;
+        }
+      });
+      oldDeal.lines.forEach((line) => {
+        const p = db.products.find((x) => x.id === line.productId);
+        if (p) {
+          p.stockQuantity = Math.max(0, p.stockQuantity - line.quantity);
+        }
+      });
+      db.deals = db.deals.map((x) => (x.id === newDeal.id ? oldDeal : x));
+      emit();
+      throw new Error(error.message);
+    }
+
+    // Refresh to sync server-side changes (inventory movements, updated stock)
+    await refreshAll();
   },
+  requestEditDeal(dealId: string, user: User) {
+    const deal = db.deals.find((d) => d.id === dealId);
+    if (!deal) return;
+    const editRequest: EditRequest = {
+      requestedBy: user.id,
+      requestedByName: user.name,
+      requestedAt: now(),
+      status: "pending",
+    };
+    const next = { ...deal, editRequest, updatedAt: now() };
+    db.deals = db.deals.map((x) => (x.id === dealId ? next : x));
+    emit();
+    remote(supabase.from("deals").update({ edit_request: editRequest, updated_at: now() }).eq("id", dealId));
+  },
+
+  reviewEditRequest(dealId: string, approved: boolean, reviewer: User) {
+    const deal = db.deals.find((d) => d.id === dealId);
+    if (!deal || !deal.editRequest) return;
+    const editRequest: EditRequest = {
+      ...deal.editRequest,
+      status: approved ? "approved" : "rejected",
+      reviewedBy: reviewer.id,
+      reviewedByName: reviewer.name,
+      reviewedAt: now(),
+    };
+    const next = { ...deal, editRequest, updatedAt: now() };
+    db.deals = db.deals.map((x) => (x.id === dealId ? next : x));
+    emit();
+    remote(supabase.from("deals").update({ edit_request: editRequest, updated_at: now() }).eq("id", dealId));
+  },
+
   deleteDeal(id: string) {
     db.deals = db.deals.filter((d) => d.id !== id);
     emit();

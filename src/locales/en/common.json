@@ -50,7 +50,7 @@
   "common": {
     "search": "Search...",
     "save": "Save",
-    "cancel": "Cancel",
+    "cancel": "Discard changes",
     "delete": "Delete",
     "edit": "Edit",
     "view_all": "View all",
@@ -65,7 +65,7 @@
       "print": "Print",
       "print_invoice": "Print invoice",
       "title": "Actions",
-      "cancel": "Cancel",
+      "cancel": "Discard changes",
       "save": "Save"
     },
     "columns": "Columns"
@@ -212,7 +212,7 @@
     "collected_total": "Collected Total",
     "clearing_status": "Clearing Status",
     "settle_transaction": "Settle Transaction",
-    "receipt_deposit": "Receipt Deposit (EGP)",
+    "receipt_deposit": "Amount Paid (EGP)",
     "commit_settlement": "Commit Settlement",
     "new_title": "Submit New Deal",
     "new_desc": "Enter pipeline sale record. Submissions route immediately to Finance for invoice clearance.",

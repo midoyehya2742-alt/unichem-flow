@@ -82,9 +82,6 @@ function CustomersPage() {
         return (
           <div className="flex items-center justify-end gap-1">
             <Button size="icon" variant="ghost" onClick={() => openEdit(c)} className="h-7 w-7 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"><Pencil className="h-3.5 w-3.5" /></Button>
-            <Button size="icon" variant="ghost" onClick={() => { db.archiveCustomer(c.id); toast.success(t("customers.archived")); }} className="h-7 w-7 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20">
-              <Archive className="h-3.5 w-3.5" />
-            </Button>
           </div>
         );
       },
