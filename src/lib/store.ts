@@ -575,7 +575,14 @@ export const store = {
     const next = { ...deal, editRequest, updatedAt: now() };
     db.deals = db.deals.map((x) => (x.id === dealId ? next : x));
     emit();
-    remote(supabase.from("deals").update({ edit_request: editRequest, updated_at: now() }).eq("id", dealId));
+    // Use a SECURITY DEFINER RPC so salesmen (who cannot UPDATE deals directly
+    // due to RLS) can persist their edit request.
+    remote(supabase.rpc("request_deal_edit", {
+      p_deal_id: dealId,
+      p_requested_by: user.id,
+      p_requested_by_name: user.name,
+      p_requested_at: editRequest.requestedAt,
+    }));
   },
 
   reviewEditRequest(dealId: string, approved: boolean, reviewer: User) {

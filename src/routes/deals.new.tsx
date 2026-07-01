@@ -320,7 +320,7 @@ function NewDeal() {
                         type="number"
                         min={0.01}
                         step="any"
-                        value={line.quantity}
+                        value={line.quantity === 0 ? "" : line.quantity}
                         onChange={(e) => updateLine(i, { quantity: parseFloat(e.target.value) || 0 })}
                         className="h-9 text-xs"
                       />
@@ -331,7 +331,7 @@ function NewDeal() {
                         type="number"
                         min={0}
                         step="any"
-                        value={line.unitPrice}
+                        value={line.unitPrice === 0 ? "" : line.unitPrice}
                         onChange={(e) => updateLine(i, { unitPrice: parseFloat(e.target.value) || 0 })}
                         className="h-9 text-xs"
                       />
@@ -342,7 +342,7 @@ function NewDeal() {
                         type="number"
                         min={0}
                         max={100}
-                        value={line.discount}
+                        value={line.discount === 0 ? "" : line.discount}
                         onChange={(e) => updateLine(i, { discount: parseFloat(e.target.value) || 0 })}
                         className="h-9 text-xs"
                       />
@@ -447,7 +447,7 @@ function NewDeal() {
                         type="number"
                         min={0}
                         step="any"
-                        value={immediateAmount}
+                        value={immediateAmount === 0 ? "" : immediateAmount}
                         onChange={(e) => { setImmediateAmount(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
                         className="h-9 text-xs"
                       />
@@ -470,7 +470,7 @@ function NewDeal() {
                                 <Input
                                   type="number"
                                   placeholder="Amount"
-                                  value={c.amount}
+                                  value={c.amount === 0 ? "" : c.amount}
                                   onChange={(e) => updateCheque(c.id, { amount: parseFloat(e.target.value) || 0 })}
                                   className="h-8 text-xs w-24"
                                 />
@@ -541,7 +541,7 @@ function NewDeal() {
                       type="number"
                       min={0}
                       max={100}
-                      value={discount}
+                      value={discount === 0 ? "" : discount}
                       onChange={(e) => { setDiscount(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
                       className="h-8 text-xs"
                     />
@@ -552,7 +552,7 @@ function NewDeal() {
                       type="number"
                       min={0}
                       max={100}
-                      value={tax}
+                      value={tax === 0 ? "" : tax}
                       onChange={(e) => { setTax(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
                       className="h-8 text-xs"
                     />

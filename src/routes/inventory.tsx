@@ -417,11 +417,11 @@ function ProductDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label={t("inventory.quantity")}><Input type="number" min={0} step="0.01" value={product.stockQuantity} onChange={(e) => setProduct({ ...product, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+            <Field label={t("inventory.quantity")}><Input type="number" min={0} step="0.01" value={product.stockQuantity === 0 ? "" : product.stockQuantity} onChange={(e) => setProduct({ ...product, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label={t("inventory.threshold")}><Input type="number" min={0} step="0.01" value={product.minimumStockLevel} onChange={(e) => setProduct({ ...product, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
-            <Field label={t("deals.price")}><Input type="number" min={0} step="0.01" value={product.defaultPrice} onChange={(e) => setProduct({ ...product, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+            <Field label={t("inventory.threshold")}><Input type="number" min={0} step="0.01" value={product.minimumStockLevel === 0 ? "" : product.minimumStockLevel} onChange={(e) => setProduct({ ...product, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+            <Field label={t("deals.price")}><Input type="number" min={0} step="0.01" value={product.defaultPrice === 0 ? "" : product.defaultPrice} onChange={(e) => setProduct({ ...product, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
           </div>
         </div>
         <SheetFooter className="mt-4 gap-2 border-t border-slate-100 dark:border-slate-800 pt-4">
@@ -466,7 +466,7 @@ function AdjustmentDialog({ product, actor, onClose }: { product: Product; actor
             <Button type="button" variant={mode === "correction" ? "default" : "outline"} className="h-10 text-xs" onClick={() => setMode("correction")}><RefreshCw className="h-3.5 w-3.5 ms-1" />{t("inventory.correct")}</Button>
           </div>
           <div className="grid sm:grid-cols-2 gap-3 items-end">
-            <Field label={t("inventory.adjustment")}><Input type="number" min={0} step="0.01" value={quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} className="h-9" /></Field>
+            <Field label={t("inventory.adjustment")}><Input type="number" min={0} step="0.01" value={quantity === 0 ? "" : quantity} onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)} className="h-9" /></Field>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-900/50">
               <div className="text-[10px] font-semibold text-slate-400 uppercase">{t("inventory.projected_balance")}</div>
               <div className="text-base font-bold text-slate-850 dark:text-white mt-0.5">{formatNumber(preview)} {product.unit}</div>

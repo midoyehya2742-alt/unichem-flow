@@ -151,10 +151,10 @@ function ProductsPage() {
                 <Field label={t("products.packing_unit")}><Input value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} className="h-9" /></Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label={t("products.stock_qty")}><Input type="number" min={0} step="0.01" value={editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
-                <Field label={t("products.min_threshold")}><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+                <Field label={t("products.stock_qty")}><Input type="number" min={0} step="0.01" value={editing.stockQuantity === 0 ? "" : editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+                <Field label={t("products.min_threshold")}><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel === 0 ? "" : editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
               </div>
-              <Field label={t("products.price_egp")}><Input type="number" min={0} step="0.01" value={editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+              <Field label={t("products.price_egp")}><Input type="number" min={0} step="0.01" value={editing.defaultPrice === 0 ? "" : editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
             </div>
             <DialogFooter className="mt-4 gap-2">
               <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t("common.actions.cancel")}</Button>

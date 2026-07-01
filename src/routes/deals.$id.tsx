@@ -34,7 +34,7 @@ function DealDetails() {
   const { t } = useTranslation("common");
 
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(deal?.paymentStatus ?? "unpaid");
-  const [amountPaid, setAmountPaid] = useState<number>(deal?.amountPaid ?? 0);
+  const [amountPaid, setAmountPaid] = useState<number | string>(deal?.amountPaid ?? 0);
   const [noteText, setNoteText] = useState("");
 
   if (!deal) {
@@ -92,7 +92,8 @@ function DealDetails() {
 
   const savePayment = () => {
     if (!user) return;
-    db.updateDeal({ ...deal, paymentStatus, amountPaid }, user);
+    const finalAmount = typeof amountPaid === "string" ? parseFloat(amountPaid) || 0 : amountPaid;
+    db.updateDeal({ ...deal, paymentStatus, amountPaid: finalAmount }, user);
     toast.success(t("deals.payment_saved"));
   };
 
@@ -132,8 +133,8 @@ function DealDetails() {
               <TrendingUp className="h-4 w-4 me-2" /> Edit Deal
             </Button>
           )}
-          {/* Salesman edit request flow */}
-          {isSalesman && deal.dealStatus === "approved" && (
+          {/* Salesman edit request flow — show on any non-rejected deal */}
+          {isSalesman && deal.dealStatus !== "rejected" && (
             <>
               {/* No pending request OR request was rejected → show Request Edit */}
               {(!myEditRequest || myEditRequest.status === "rejected") && (
@@ -168,15 +169,18 @@ function DealDetails() {
           }} className="h-8 text-xs">
             {t("common.actions.cancel")}
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => {
-            if (window.confirm("Are you sure you want to delete this deal?")) {
-              db.deleteDeal(deal.id);
-              toast.success("Deal deleted");
-              navigate({ to: "/deals" });
-            }
-          }} className="h-8 text-xs">
-            <Trash2 className="h-4 w-4 me-2" /> Delete
-          </Button>
+          {/* Only admin/finance can delete a deal */}
+          {isFinanceOrAdmin && (
+            <Button variant="destructive" size="sm" onClick={() => {
+              if (window.confirm("Are you sure you want to delete this deal?")) {
+                db.deleteDeal(deal.id);
+                toast.success("Deal deleted");
+                navigate({ to: "/deals" });
+              }
+            }} className="h-8 text-xs">
+              <Trash2 className="h-4 w-4 me-2" /> Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -529,8 +533,14 @@ function DealDetails() {
                       type="number"
                       min={0}
                       step="any"
-                      value={amountPaid}
-                      onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
+                      value={amountPaid === 0 ? "" : amountPaid}
+                      onFocus={() => {
+                        if (amountPaid === 0) setAmountPaid("");
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAmountPaid(val === "" ? "" : parseFloat(val) || 0);
+                      }}
                       className="h-9 text-xs flex-1"
                     />
                     {deal.total - amountPaid > 0 && (

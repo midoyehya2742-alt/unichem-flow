@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Plus, Users, Package, UserCog,
   BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker, Warehouse,
   Search, Bell, Sun, Moon, Star, ChevronLeft, ChevronRight, History,
-  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle
+  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import type { Role } from "@/lib/types";
@@ -56,6 +56,7 @@ interface SysNotification {
 
 import { useTranslation } from "react-i18next";
 import { useDb } from "@/lib/store";
+import { Edit2 } from "lucide-react";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -74,6 +75,48 @@ export function AppShell({ children }: { children: ReactNode }) {
   
   // Clean, production-ready notification state starting with no notifications (or a system welcome for the first admin)
   const [notifications, setNotifications] = useState<SysNotification[]>([]);
+
+  // Watch the deal store for new pending edit requests and push notifications for admin/finance
+  useEffect(() => {
+    if (!user || (user.role !== "admin" && user.role !== "finance")) return;
+
+    const deals = db.listDeals();
+    const pending = deals.filter(d => d.editRequest?.status === "pending");
+
+    const seenKey = `unichem-notified-edits-${user.id}`;
+    const seen: string[] = JSON.parse(localStorage.getItem(seenKey) || "[]");
+
+    const newNotifs: SysNotification[] = [];
+    const newSeen = [...seen];
+
+    for (const deal of pending) {
+      const notifId = `edit-req-${deal.id}-${deal.editRequest!.requestedAt}`;
+      if (seen.includes(notifId)) continue;
+
+      newNotifs.push({
+        id: notifId,
+        title: "Edit Request — " + deal.reference,
+        desc: `${deal.editRequest!.requestedByName} requested permission to edit this deal. Tap to review.`,
+        time: new Date(deal.editRequest!.requestedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        type: "warning",
+        read: false,
+        dealId: deal.id,
+      } as SysNotification & { dealId: string });
+
+      newSeen.push(notifId);
+    }
+
+    if (newNotifs.length > 0) {
+      localStorage.setItem(seenKey, JSON.stringify(newSeen));
+      setNotifications(prev => {
+        // Avoid inserting duplicates if already in state
+        const existingIds = new Set(prev.map(n => n.id));
+        const toAdd = newNotifs.filter(n => !existingIds.has(n.id));
+        return [...toAdd, ...prev];
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.listDeals().map(d => `${d.id}:${d.editRequest?.status}:${d.editRequest?.requestedAt}`).join(","), user?.id]);
 
   const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
@@ -383,8 +426,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         error: AlertCircle,
                         info: Sparkles
                       }[n.type];
-                      return (
-                        <div key={n.id} className={cn("p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-indigo-50/20 dark:bg-indigo-950/10" : "")}>
+                      const dealId = (n as any).dealId as string | undefined;
+                      const inner = (
+                        <div key={n.id} className={cn("p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-violet-50/30 dark:bg-violet-950/10" : "")}>
                           <div className={cn("mt-0.5 rounded-full p-1 h-7 w-7 grid place-items-center shrink-0", 
                             n.type === "success" && "bg-emerald-500/10 text-emerald-500",
                             n.type === "warning" && "bg-amber-500/10 text-amber-500",
@@ -395,13 +439,29 @@ export function AppShell({ children }: { children: ReactNode }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                              <span>{n.title}</span>
+                              <span className="flex items-center gap-1">
+                                {dealId && <Edit2 className="h-3 w-3 text-violet-500 shrink-0" />}
+                                {n.title}
+                              </span>
                               <span className="text-[10px] text-slate-400 font-normal">{n.time}</span>
                             </div>
                             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{n.desc}</div>
+                            {dealId && (
+                              <div className="mt-2">
+                                <Link
+                                  to="/deals/$id"
+                                  params={{ id: dealId }}
+                                  onClick={() => setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:underline"
+                                >
+                                  Review Deal <ArrowRight className="h-2.5 w-2.5" />
+                                </Link>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
+                      return <div key={n.id}>{inner}</div>;
                     })
                   )}
                 </div>

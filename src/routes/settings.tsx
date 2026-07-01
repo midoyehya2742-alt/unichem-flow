@@ -68,7 +68,7 @@ function SettingsPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-slate-500">{t("settings.vat")}</Label>
-              <Input type="number" min={0} max={100} value={defaultTax} onChange={(e) => setDefaultTax(parseFloat(e.target.value) || 0)} className="h-10 text-xs" />
+              <Input type="number" min={0} max={100} value={defaultTax === 0 ? "" : defaultTax} onChange={(e) => setDefaultTax(parseFloat(e.target.value) || 0)} className="h-10 text-xs" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-slate-500">{t("settings.currency")}</Label>
