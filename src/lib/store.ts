@@ -585,6 +585,7 @@ export const store = {
     }));
   },
 
+
   reviewEditRequest(dealId: string, approved: boolean, reviewer: User) {
     const deal = db.deals.find((d) => d.id === dealId);
     if (!deal || !deal.editRequest) return;

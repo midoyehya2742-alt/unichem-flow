@@ -73,8 +73,78 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [historyList, setHistoryList] = useState<string[]>([]);
   
-  // Clean, production-ready notification state starting with no notifications (or a system welcome for the first admin)
-  const [notifications, setNotifications] = useState<SysNotification[]>([]);
+  // Read-state for notifications, persisted per user
+  const seenKey = user ? `unichem-notif-seen-${user.id}` : "";
+  const [seenIds, setSeenIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!seenKey) return;
+    try {
+      const raw = localStorage.getItem(seenKey);
+      setSeenIds(raw ? JSON.parse(raw) : []);
+    } catch { setSeenIds([]); }
+  }, [seenKey]);
+
+  // Derive notifications from edit-request state on deals
+  const deals = user ? db.listDeals() : [];
+  const notifications: SysNotification[] = (() => {
+    if (!user) return [];
+    const out: SysNotification[] = [];
+    const fmt = (iso: string) => {
+      const d = new Date(iso);
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return d.toLocaleDateString();
+    };
+    for (const d of deals) {
+      const er = d.editRequest;
+      if (!er) continue;
+      if ((user.role === "admin" || user.role === "finance") && er.status === "pending") {
+        const id = `edit-req:${d.id}:${er.requestedAt}`;
+        out.push({
+          id,
+          title: `Edit request · ${d.reference}`,
+          desc: `${er.requestedByName} requested to edit deal ${d.reference}.`,
+          time: fmt(er.requestedAt),
+          type: "warning",
+          read: seenIds.includes(id),
+        });
+      }
+      if (user.role === "salesman" && er.requestedBy === user.id && (er.status === "approved" || er.status === "rejected") && er.reviewedAt) {
+        const id = `edit-res:${d.id}:${er.reviewedAt}:${er.status}`;
+        out.push({
+          id,
+          title: `Edit ${er.status} · ${d.reference}`,
+          desc: `${er.reviewedByName || "Finance"} ${er.status} your edit request for ${d.reference}.`,
+          time: fmt(er.reviewedAt),
+          type: er.status === "approved" ? "success" : "error",
+          read: seenIds.includes(id),
+        });
+      }
+    }
+    return out.sort((a, b) => b.id.localeCompare(a.id));
+  })();
+
+  // Toast on new unread notifications
+  const [toastedIds, setToastedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user) return;
+    const fresh = notifications.filter((n) => !n.read && !toastedIds.has(n.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((n) => {
+      if (n.type === "success") toast.success(n.title, { description: n.desc });
+      else if (n.type === "error") toast.error(n.title, { description: n.desc });
+      else toast(n.title, { description: n.desc });
+    });
+    setToastedIds((prev) => {
+      const next = new Set(prev);
+      fresh.forEach((n) => next.add(n.id));
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications.map((n) => n.id).join("|"), user?.id]);
+
 
   // Watch the deal store for new pending edit requests and push notifications for admin/finance
   useEffect(() => {
@@ -167,9 +237,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const ids = notifications.map((n) => n.id);
+    setSeenIds(ids);
+    if (seenKey) localStorage.setItem(seenKey, JSON.stringify(ids));
     toast.success(t("shell.all_read"));
   };
+
+  const markRead = (id: string) => {
+    setSeenIds((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      if (seenKey) localStorage.setItem(seenKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
 
   const getBreadcrumbs = () => {
     const parts = pathname.split("/").filter(Boolean);
@@ -427,8 +508,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                         info: Sparkles
                       }[n.type];
                       const dealId = (n as any).dealId as string | undefined;
-                      const inner = (
-                        <div key={n.id} className={cn("p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-violet-50/30 dark:bg-violet-950/10" : "")}>
+                      return (
+                        <button
+                          key={n.id}
+                          onClick={() => {
+                            markRead(n.id);
+                            if (dealId) navigate({ to: "/deals/$id", params: { id: dealId } });
+                          }}
+                          className={cn("w-full text-left p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition", !n.read ? "bg-violet-50/30 dark:bg-violet-950/10" : "")}
+                        >
                           <div className={cn("mt-0.5 rounded-full p-1 h-7 w-7 grid place-items-center shrink-0", 
                             n.type === "success" && "bg-emerald-500/10 text-emerald-500",
                             n.type === "warning" && "bg-amber-500/10 text-amber-500",
@@ -459,9 +547,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                               </div>
                             )}
                           </div>
-                        </div>
+                        </button>
+
                       );
-                      return <div key={n.id}>{inner}</div>;
                     })
                   )}
                 </div>
