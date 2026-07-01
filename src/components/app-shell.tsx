@@ -58,6 +58,8 @@ import { useTranslation } from "react-i18next";
 import { useDb } from "@/lib/store";
 import { Edit2 } from "lucide-react";
 
+const globalToastedIds = new Set<string>();
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -127,66 +129,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   })();
 
   // Toast on new unread notifications
-  const [toastedIds, setToastedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!user) return;
-    const fresh = notifications.filter((n) => !n.read && !toastedIds.has(n.id));
+    const fresh = notifications.filter((n) => !n.read && !globalToastedIds.has(n.id));
     if (fresh.length === 0) return;
     fresh.forEach((n) => {
       if (n.type === "success") toast.success(n.title, { description: n.desc });
       else if (n.type === "error") toast.error(n.title, { description: n.desc });
       else toast(n.title, { description: n.desc });
-    });
-    setToastedIds((prev) => {
-      const next = new Set(prev);
-      fresh.forEach((n) => next.add(n.id));
-      return next;
+      globalToastedIds.add(n.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifications.map((n) => n.id).join("|"), user?.id]);
-
-
-  // Watch the deal store for new pending edit requests and push notifications for admin/finance
-  useEffect(() => {
-    if (!user || (user.role !== "admin" && user.role !== "finance")) return;
-
-    const deals = db.listDeals();
-    const pending = deals.filter(d => d.editRequest?.status === "pending");
-
-    const seenKey = `unichem-notified-edits-${user.id}`;
-    const seen: string[] = JSON.parse(localStorage.getItem(seenKey) || "[]");
-
-    const newNotifs: SysNotification[] = [];
-    const newSeen = [...seen];
-
-    for (const deal of pending) {
-      const notifId = `edit-req-${deal.id}-${deal.editRequest!.requestedAt}`;
-      if (seen.includes(notifId)) continue;
-
-      newNotifs.push({
-        id: notifId,
-        title: "Edit Request — " + deal.reference,
-        desc: `${deal.editRequest!.requestedByName} requested permission to edit this deal. Tap to review.`,
-        time: new Date(deal.editRequest!.requestedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        type: "warning",
-        read: false,
-        dealId: deal.id,
-      } as SysNotification & { dealId: string });
-
-      newSeen.push(notifId);
-    }
-
-    if (newNotifs.length > 0) {
-      localStorage.setItem(seenKey, JSON.stringify(newSeen));
-      setNotifications(prev => {
-        // Avoid inserting duplicates if already in state
-        const existingIds = new Set(prev.map(n => n.id));
-        const toAdd = newNotifs.filter(n => !existingIds.has(n.id));
-        return [...toAdd, ...prev];
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [db.listDeals().map(d => `${d.id}:${d.editRequest?.status}:${d.editRequest?.requestedAt}`).join(","), user?.id]);
 
   const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
@@ -539,7 +493,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                                 <Link
                                   to="/deals/$id"
                                   params={{ id: dealId }}
-                                  onClick={() => setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                                  onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
                                   className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-600 dark:text-violet-400 hover:underline"
                                 >
                                   Review Deal <ArrowRight className="h-2.5 w-2.5" />
