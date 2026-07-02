@@ -168,7 +168,7 @@ function Dashboard() {
                   <span className="text-xs font-semibold truncate">{deal.reference}</span>
                   <span className="text-[10px] opacity-70 truncate">{deal.editRequest?.requestedByName}</span>
                 </div>
-                <Link to={`/deals/${deal.id}`}>
+                <Link to="/deals/$id" params={{ id: deal.id }}>
                   <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2 text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 dark:text-violet-400">
                     Review
                   </Button>
