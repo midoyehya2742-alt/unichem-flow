@@ -543,7 +543,7 @@ function DealDetails() {
                       }}
                       className="h-9 text-xs flex-1"
                     />
-                    {deal.total - amountPaid > 0 && (
+                    {deal.total - (Number(amountPaid) || 0) > 0 && (
                       <Button
                         type="button"
                         variant="outline"
@@ -557,9 +557,9 @@ function DealDetails() {
                       </Button>
                     )}
                   </div>
-                  {deal.total - amountPaid > 0 && (
+                  {deal.total - (Number(amountPaid) || 0) > 0 && (
                     <div className="text-[10.5px] text-slate-500 text-right mt-1">
-                      Remaining to pay: <span className="font-bold text-rose-500">{formatEGP(deal.total - amountPaid)}</span>
+                      Remaining to pay: <span className="font-bold text-rose-500">{formatEGP(deal.total - (Number(amountPaid) || 0))}</span>
                     </div>
                   )}
                 </div>
