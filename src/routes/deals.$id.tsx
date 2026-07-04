@@ -737,11 +737,3 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
 }
 
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex justify-between items-center gap-2 py-1 border-b border-slate-100 dark:border-slate-800/40">
-      <span className="text-slate-400 font-medium">{label}</span>
-      <span className="text-right text-slate-700 dark:text-slate-300 font-semibold">{value}</span>
-    </div>
-  );
-}
