@@ -15,14 +15,21 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Access Gate — UniChem ERP" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   component: AuthPage,
 });
+
 
 type TabMode = "signin" | "signup" | "forgot" | "reset";
 
 function AuthPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+  const redirectTarget: string = next ?? "/dashboard";
+
 
   const [activeTab, setActiveTab] = useState<TabMode>("signin");
   const [email, setEmail] = useState("");
@@ -44,12 +51,16 @@ function AuthPage() {
     }
   }, []);
 
-  // Redirect authenticated users
+  // Redirect authenticated users (honor ?next=)
   useEffect(() => {
     if (user) {
-      navigate({ to: "/dashboard", replace: true });
+      if (next) {
+        window.location.replace(next);
+      } else {
+        navigate({ to: "/dashboard", replace: true });
+      }
     }
-  }, [user, navigate]);
+  }, [user, navigate, next]);
 
   // ─── Sign In ────────────────────────────────────────────────────
   const handleSignIn = async (e: React.FormEvent) => {
@@ -63,9 +74,11 @@ function AuthPage() {
         toast.error(r.error ?? "Invalid email or password. Please try again.");
         return;
       }
-      toast.success("Welcome back! Redirecting to dashboard…");
-      navigate({ to: "/dashboard", replace: true });
+      toast.success("Welcome back! Redirecting…");
+      if (next) window.location.replace(next);
+      else navigate({ to: "/dashboard", replace: true });
     } catch (err: any) {
+
       toast.error(err.message || "An unexpected error occurred. Please try again.");
     } finally {
       setBusy(false);
