@@ -144,6 +144,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
+  // Close mobile drawer whenever the route changes
+  useEffect(() => {
+    setMobileOpen(false);
+    setSearchOpen(false);
+  }, [pathname]);
+
   // Initialize and track user navigation history
   useEffect(() => {
     if (!user) return;
@@ -172,6 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
 
   if (!user) return null;
 
@@ -542,10 +549,40 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content Panel */}
-        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 print:bg-white print:min-h-0 print:overflow-visible">
+        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 pb-20 md:pb-0 print:bg-white print:min-h-0 print:overflow-visible print:pb-0">
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom quick-nav — primary routes always one tap away */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/70 bg-background/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] print:hidden">
+        <div className="grid grid-cols-4">
+          {[
+            { to: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
+            { to: "/deals", icon: FileText, label: t("nav.deals") },
+            { to: "/customers", icon: Users, label: t("nav.customers") },
+            { to: "/inventory", icon: Warehouse, label: t("nav.inventory") },
+          ].map(({ to, icon: Icon, label }) => {
+            const active = pathname === to || pathname.startsWith(`${to}/`);
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors",
+                  active
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4.5 w-4.5" />
+                <span className="truncate max-w-full px-1">{label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
 
       {/* Global Command Palette search Modal */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>

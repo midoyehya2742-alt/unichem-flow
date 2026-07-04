@@ -9,16 +9,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, XCircle, AlertTriangle, Clock, MessageSquare, TrendingUp, Trash2, Edit2, Hourglass } from "lucide-react";
-import { useState } from "react";
+import {
+  ArrowLeft, Printer, Paperclip, Send, CheckCircle2, XCircle, AlertTriangle, Clock,
+  MessageSquare, TrendingUp, Trash2, Edit2, Hourglass, FilePlus2, Wallet, History,
+} from "lucide-react";
+import { Timeline, type TimelineItem } from "@/components/ui/timeline";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
 import type { PaymentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+
 
 export const Route = createFileRoute("/deals/$id")({
   head: () => ({ meta: [{ title: "Deal Details — UniChem ERP" }] }),
@@ -479,107 +485,255 @@ function DealDetails() {
           </Card>
         </div>
 
-        {/* Sidebar Summary & Payment Controls */}
-        <div className="space-y-4">
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/85">
-              <CardTitle className="text-sm font-bold">{t("deals.ledger_info")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4 text-xs">
-              <Row label={t("deals.deal_ref")} value={<span className="font-bold text-slate-850 dark:text-white">{deal.reference}</span>} />
-              <Row label={t("deals.client_account")} value={<span className="font-semibold text-slate-850 dark:text-white">{deal.customerName}</span>} />
-              <Row label={t("deals.sales_agent")} value={deal.salesmanName} />
-              <Row label={t("deals.created_on")} value={formatDateTime(deal.dealDate)} />
-              {deal.expectedPaymentDate && <Row label={t("deals.payment_target")} value={formatDateTime(deal.expectedPaymentDate)} />}
-              <Row label={t("deals.invoice_total")} value={<span className="font-bold text-indigo-600 dark:text-indigo-400">{formatEGP(deal.total)}</span>} />
-              <Row label={t("deals.collected_total")} value={<span className="font-bold text-emerald-600 dark:text-emerald-400">{formatEGP(deal.amountPaid)}</span>} />
-              <Row
-                label={t("deals.clearing_status")}
-                value={
-                  <Badge variant={deal.paymentStatus === "paid" ? "default" : deal.paymentStatus === "partial" ? "secondary" : "destructive"} className="text-[10px] px-2">
-                    {t(`deals.payment_status.${deal.paymentStatus}`)}
-                  </Badge>
-                }
-              />
-            </CardContent>
-          </Card>
+        {/* Sidebar: Settlement panel + activity timeline */}
+        <div className="space-y-5">
+          <SettlementPanel
+            deal={deal}
+            canEditPayment={canEditPayment}
+            paymentStatus={paymentStatus}
+            setPaymentStatus={setPaymentStatus}
+            amountPaid={amountPaid}
+            setAmountPaid={setAmountPaid}
+            savePayment={savePayment}
+            t={t}
+          />
 
-          {/* Payment updating panel */}
-          {canEditPayment && (
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                  <TrendingUp className="h-4 w-4 text-emerald-500" /> {t("deals.settle_transaction")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-1">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-slate-500">{t("deals.status")}</Label>
-                  <Select value={paymentStatus} onValueChange={(v: PaymentStatus) => setPaymentStatus(v)}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unpaid">{t("deals.payment_status.unpaid")}</SelectItem>
-                      <SelectItem value="partial">{t("deals.payment_status.partial")}</SelectItem>
-                      <SelectItem value="paid">{t("deals.payment_status.paid")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5 flex flex-col">
-                  <Label className="text-[10px] font-semibold text-slate-500">{t("deals.receipt_deposit")}</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={amountPaid === 0 ? "" : amountPaid}
-                      onFocus={() => {
-                        if (amountPaid === 0) setAmountPaid("");
-                      }}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setAmountPaid(val === "" ? "" : parseFloat(val) || 0);
-                      }}
-                      className="h-9 text-xs flex-1"
-                    />
-                    {deal.total - (Number(amountPaid) || 0) > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                        onClick={() => {
-                          setAmountPaid(deal.total);
-                          setPaymentStatus("paid");
-                        }}
-                      >
-                        Pay Rest
-                      </Button>
-                    )}
-                  </div>
-                  {deal.total - (Number(amountPaid) || 0) > 0 && (
-                    <div className="text-[10.5px] text-slate-500 text-right mt-1">
-                      Remaining to pay: <span className="font-bold text-rose-500">{formatEGP(deal.total - (Number(amountPaid) || 0))}</span>
-                    </div>
-                  )}
-                </div>
-                <Button className="w-full h-9 text-xs shadow-md shadow-emerald-500/10 mt-2" onClick={savePayment}>
-                  {t("deals.commit_settlement")}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          <ActivityTimelineCard deal={deal} t={t} />
         </div>
       </div>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function SettlementPanel({
+  deal, canEditPayment, paymentStatus, setPaymentStatus, amountPaid, setAmountPaid, savePayment, t,
+}: {
+  deal: any;
+  canEditPayment: boolean;
+  paymentStatus: PaymentStatus;
+  setPaymentStatus: (v: PaymentStatus) => void;
+  amountPaid: number | string;
+  setAmountPaid: (v: number | string) => void;
+  savePayment: () => void;
+  t: (k: string) => string;
+}) {
+  const paidNum = typeof amountPaid === "string" ? parseFloat(amountPaid) || 0 : amountPaid;
+  const total = deal.total || 0;
+  const remaining = Math.max(0, total - paidNum);
+  const pct = total > 0 ? Math.min(100, Math.round((paidNum / total) * 100)) : 0;
+  const statusTone =
+    deal.paymentStatus === "paid" ? "bg-emerald-500" :
+    deal.paymentStatus === "partial" ? "bg-amber-500" : "bg-rose-500";
+
   return (
-    <div className="flex justify-between items-center gap-2 py-1 border-b border-slate-100 dark:border-slate-800/40">
-      <span className="text-slate-400 font-medium">{label}</span>
-      <span className="text-right text-slate-700 dark:text-slate-300 font-semibold">{value}</span>
-    </div>
+    <Card className="border-border shadow-sm overflow-hidden print:hidden">
+      <CardHeader className="pb-3 border-b border-border/60 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-primary" /> Settlement
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-4">
+        {/* Big remaining number */}
+        <div className="text-center py-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Remaining balance
+          </div>
+          <div className={cn("text-3xl font-black tracking-tight mt-1", remaining === 0 ? "text-emerald-500" : "text-foreground")}>
+            {formatEGP(remaining)}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1">
+            of {formatEGP(total)} total
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-[10px] font-semibold text-muted-foreground">
+            <span>Collected</span>
+            <span>{pct}%</span>
+          </div>
+          <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn("absolute inset-y-0 start-0 transition-all", statusTone)}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] pt-0.5">
+            <span className="text-muted-foreground">
+              Paid <span className="font-bold text-emerald-500">{formatEGP(paidNum)}</span>
+            </span>
+            {deal.expectedPaymentDate && (
+              <span className="text-muted-foreground">
+                Due <span className="font-semibold text-foreground">
+                  {new Date(deal.expectedPaymentDate).toLocaleDateString()}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Status pill */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground font-medium">Status</span>
+          <Badge
+            variant={deal.paymentStatus === "paid" ? "default" : deal.paymentStatus === "partial" ? "secondary" : "destructive"}
+            className="text-[10px] px-2"
+          >
+            {t(`deals.payment_status.${deal.paymentStatus}`)}
+          </Badge>
+        </div>
+
+        {canEditPayment && (
+          <div className="border-t border-border/60 pt-4 space-y-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Record a payment
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Amount received</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={amountPaid === 0 ? "" : amountPaid}
+                  onFocus={() => { if (amountPaid === 0) setAmountPaid(""); }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setAmountPaid(val === "" ? "" : parseFloat(val) || 0);
+                  }}
+                  className="h-9 text-xs flex-1"
+                  placeholder="0.00"
+                />
+                {remaining > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 border-emerald-500/30"
+                    onClick={() => { setAmountPaid(deal.total); setPaymentStatus("paid"); }}
+                  >
+                    Pay full
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-semibold text-muted-foreground">Payment status</Label>
+              <Select value={paymentStatus} onValueChange={(v: PaymentStatus) => setPaymentStatus(v)}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unpaid">{t("deals.payment_status.unpaid")}</SelectItem>
+                  <SelectItem value="partial">{t("deals.payment_status.partial")}</SelectItem>
+                  <SelectItem value="paid">{t("deals.payment_status.paid")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full h-9 text-xs shadow-md shadow-primary/10" onClick={savePayment}>
+              <CheckCircle2 className="h-3.5 w-3.5 me-1.5" /> Commit settlement
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
+
+function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string }) {
+  const items = useMemo<TimelineItem[]>(() => {
+    const list: TimelineItem[] = [];
+    // Deal created
+    list.push({
+      id: "created",
+      icon: FilePlus2,
+      title: <>Deal created by <strong>{deal.salesmanName}</strong></>,
+      description: <>Reference {deal.reference} — total {formatEGP(deal.total)}</>,
+      time: formatDateTime(deal.createdAt),
+      tone: "primary",
+    });
+    // Deal status change
+    if (deal.dealStatus === "approved") {
+      list.push({
+        id: "approved",
+        icon: CheckCircle2,
+        title: "Deal approved",
+        description: "Available for processing and payment",
+        time: formatDateTime(deal.updatedAt),
+        tone: "success",
+      });
+    } else if (deal.dealStatus === "rejected") {
+      list.push({
+        id: "rejected",
+        icon: XCircle,
+        title: "Deal rejected",
+        time: formatDateTime(deal.updatedAt),
+        tone: "destructive",
+      });
+    }
+    // Edit request lifecycle
+    if (deal.editRequest) {
+      const er = deal.editRequest;
+      list.push({
+        id: `edit-req-${er.requestedAt}`,
+        icon: Edit2,
+        title: <><strong>{er.requestedByName}</strong> requested an edit</>,
+        time: formatDateTime(er.requestedAt),
+        tone: "warning",
+      });
+      if (er.status === "approved" && er.reviewedAt) {
+        list.push({
+          id: `edit-approved-${er.reviewedAt}`,
+          icon: CheckCircle2,
+          title: <>Edit approved by <strong>{er.reviewedByName}</strong></>,
+          time: formatDateTime(er.reviewedAt),
+          tone: "success",
+        });
+      } else if (er.status === "rejected" && er.reviewedAt) {
+        list.push({
+          id: `edit-rejected-${er.reviewedAt}`,
+          icon: XCircle,
+          title: <>Edit rejected by <strong>{er.reviewedByName}</strong></>,
+          time: formatDateTime(er.reviewedAt),
+          tone: "destructive",
+        });
+      }
+    }
+    // Payment status snapshot (single event — we don't track history granularly)
+    if (deal.amountPaid > 0) {
+      list.push({
+        id: "payment-recorded",
+        icon: Wallet,
+        title: <>{formatEGP(deal.amountPaid)} recorded</>,
+        description: deal.paymentStatus === "paid" ? "Fully settled" : "Partial payment",
+        time: formatDateTime(deal.updatedAt),
+        tone: deal.paymentStatus === "paid" ? "success" : "warning",
+      });
+    }
+    // Finance notes
+    for (const n of deal.financeNotes || []) {
+      list.push({
+        id: `note-${n.id}`,
+        icon: MessageSquare,
+        title: <><strong>{n.authorName}</strong> added a note</>,
+        description: n.text,
+        time: formatDateTime(n.createdAt),
+        tone: "neutral",
+      });
+    }
+    // Newest first
+    return list.sort((a, b) => (b.time ?? "").localeCompare(a.time ?? ""));
+  }, [deal]);
+
+  return (
+    <Card className="border-border shadow-sm print:hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-bold flex items-center gap-2">
+          <History className="h-4 w-4 text-primary" /> Activity timeline
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-2">
+        <Timeline items={items} />
+      </CardContent>
+    </Card>
+  );
+}
+
+
