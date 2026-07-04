@@ -144,6 +144,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const items = user ? NAV.filter((n) => n.roles.includes(user.role)) : [];
 
+  // Close mobile drawer whenever the route changes
+  useEffect(() => {
+    setMobileOpen(false);
+    setSearchOpen(false);
+  }, [pathname]);
+
   // Initialize and track user navigation history
   useEffect(() => {
     if (!user) return;
@@ -172,6 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
 
   if (!user) return null;
 
