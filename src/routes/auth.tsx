@@ -15,14 +15,21 @@ import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Access Gate — UniChem ERP" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   component: AuthPage,
 });
+
 
 type TabMode = "signin" | "signup" | "forgot" | "reset";
 
 function AuthPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+  const redirectTarget: string = next ?? "/dashboard";
+
 
   const [activeTab, setActiveTab] = useState<TabMode>("signin");
   const [email, setEmail] = useState("");
