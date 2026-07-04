@@ -110,27 +110,29 @@
 
 .dark {
   --background: oklch(0.16 0.035 260);
-  --foreground: oklch(0.96 0.01 250);
+  --foreground: oklch(0.97 0.008 250);
   --card: oklch(0.22 0.045 260);
-  --card-foreground: oklch(0.96 0.01 250);
+  --card-foreground: oklch(0.97 0.008 250);
   --popover: oklch(0.22 0.045 260);
-  --popover-foreground: oklch(0.96 0.01 250);
+  --popover-foreground: oklch(0.97 0.008 250);
   --primary: oklch(0.78 0.14 75);
   --primary-foreground: oklch(0.18 0.04 260);
   --secondary: oklch(0.28 0.045 260);
   --secondary-foreground: oklch(0.96 0.01 250);
   --muted: oklch(0.28 0.045 260);
-  --muted-foreground: oklch(0.72 0.025 250);
+  /* Dark-mode contrast pass: was 0.72 which failed WCAG AA on card surfaces */
+  --muted-foreground: oklch(0.78 0.02 250);
   --accent: oklch(0.78 0.14 75);
   --accent-foreground: oklch(0.18 0.04 260);
-  --destructive: oklch(0.65 0.2 25);
+  --destructive: oklch(0.68 0.2 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.7 0.17 152);
+  --success: oklch(0.72 0.17 152);
   --success-foreground: oklch(0.16 0.035 260);
-  --warning: oklch(0.8 0.15 70);
+  --warning: oklch(0.82 0.15 70);
   --warning-foreground: oklch(0.16 0.035 260);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
+  /* Bumped border opacity so card edges are visible on dark surfaces */
+  --border: oklch(1 0 0 / 16%);
+  --input: oklch(1 0 0 / 18%);
   --ring: oklch(0.78 0.14 75);
   --sidebar: oklch(0.18 0.04 260);
   --sidebar-foreground: oklch(0.92 0.01 250);
@@ -138,7 +140,7 @@
   --sidebar-primary-foreground: oklch(0.18 0.04 260);
   --sidebar-accent: oklch(0.26 0.05 260);
   --sidebar-accent-foreground: oklch(0.96 0.01 250);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.78 0.14 75);
 }
 
@@ -149,5 +151,32 @@
     color: var(--color-foreground);
     font-family: var(--font-display);
     -webkit-font-smoothing: antialiased;
+    /* Respect device safe-area on mobile (iOS notches, Android nav bar). */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Larger tap targets on touch devices */
+  @media (pointer: coarse) {
+    button, [role="button"], a { min-height: 40px; }
   }
 }
+
+@utility glass-card {
+  background: color-mix(in oklab, var(--color-card) 85%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+@utility stat-tile {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  padding: 1rem 1.25rem;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+@utility stat-tile-hover {
+  &:hover {
+    box-shadow: 0 10px 30px -12px color-mix(in oklab, var(--color-primary) 25%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
