@@ -9,16 +9,22 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Printer, Paperclip, Send, CheckCircle2, XCircle, AlertTriangle, Clock, MessageSquare, TrendingUp, Trash2, Edit2, Hourglass } from "lucide-react";
-import { useState } from "react";
+import {
+  ArrowLeft, Printer, Paperclip, Send, CheckCircle2, XCircle, AlertTriangle, Clock,
+  MessageSquare, TrendingUp, Trash2, Edit2, Hourglass, FilePlus2, Wallet, History,
+} from "lucide-react";
+import { Timeline, type TimelineItem } from "@/components/ui/timeline";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
 import type { PaymentStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+
 
 export const Route = createFileRoute("/deals/$id")({
   head: () => ({ meta: [{ title: "Deal Details — UniChem ERP" }] }),
