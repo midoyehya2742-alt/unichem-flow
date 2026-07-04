@@ -18,6 +18,12 @@ import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageTransition } from "@/components/ui/page-transition";
+import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { motion } from "framer-motion";
+import { Users, TrendingUp, Building2, UserPlus } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
+import { formatCompactEGP } from "@/lib/format";
 
 export const Route = createFileRoute("/customers")({
   head: () => ({ meta: [{ title: "Customers — UniChem ERP" }] }),
@@ -40,6 +46,45 @@ function CustomersPage() {
     () => list.filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()) || (c.company ?? "").toLowerCase().includes(q.toLowerCase())),
     [list, q],
   );
+
+  const allDeals = db.listDeals();
+  const now = new Date();
+  
+  // KPI Calculations
+  const newCustomersCount = useMemo(() => {
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return list.filter(c => new Date(c.createdAt) >= thirtyDaysAgo).length;
+  }, [list]);
+
+  const activeCustomersCount = useMemo(() => {
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const recentDeals = allDeals.filter(d => new Date(d.dealDate) >= thirtyDaysAgo);
+    const uniqueCustomerIds = new Set(recentDeals.map(d => d.customerId));
+    return uniqueCustomerIds.size;
+  }, [allDeals]);
+
+  const customerRevenue = useMemo(() => {
+    const revMap: Record<string, number> = {};
+    allDeals.forEach(d => {
+      revMap[d.customerId] = (revMap[d.customerId] || 0) + d.total;
+    });
+    return list.map(c => ({
+      name: c.name,
+      company: c.company || c.name,
+      revenue: revMap[c.id] || 0
+    })).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [list, allDeals]);
+
+  const COLORS = ["#4f46e5", "#10b981", "#3b82f6", "#f59e0b", "#8b5cf6"];
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
 
   const [editing, setEditing] = useState<Customer | null>(null);
   const [open, setOpen] = useState(false);
@@ -93,38 +138,125 @@ function CustomersPage() {
       <PageHeader
         title={t("nav.customers")}
         description={t("customers.desc")}
-        actions={<Button size="sm" onClick={openNew} className="h-9 text-xs"><Plus className="h-4 w-4 ms-2" />{t("customers.new_customer")}</Button>}
+        actions={<Button size="sm" onClick={openNew} className="h-9 text-xs shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all"><Plus className="h-3.5 w-3.5 me-2" />{t("customers.new_customer")}</Button>}
       />
 
-      <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-        <CardContent className="p-4 relative">
-          <Search className="h-4 w-4 absolute left-7 top-1/2 -translate-y-1/2 text-slate-400 rtl:right-7 rtl:left-auto" />
-          <Input className="ps-9 h-10 text-xs focus-visible:ring-indigo-500" placeholder={t("customers.search")} value={q} onChange={(e) => setQ(e.target.value)} />
-        </CardContent>
-      </Card>
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="grid gap-4 grid-cols-1 sm:grid-cols-3"
+      >
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={Users}
+            label={t("customers.total_customers", { defaultValue: "Total Customers" })}
+            value={list.length.toString()}
+            numericValue={list.length}
+            formatter={(v) => Math.round(v).toString()}
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={UserPlus}
+            label={t("customers.new_customers_30d", { defaultValue: "New Customers (30d)" })}
+            value={newCustomersCount.toString()}
+            numericValue={newCustomersCount}
+            formatter={(v) => Math.round(v).toString()}
+            tone="success"
+            trend={newCustomersCount > 0 ? 100 : 0}
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={TrendingUp}
+            label={t("customers.active_customers", { defaultValue: "Active Ordering (30d)" })}
+            value={activeCustomersCount.toString()}
+            numericValue={activeCustomersCount}
+            formatter={(v) => Math.round(v).toString()}
+            tone="warning"
+          />
+        </motion.div>
+      </motion.div>
 
-      {loading ? (
-        <TableSkeleton columns={5} rows={5} />
-      ) : filtered.length === 0 ? (
-        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardContent className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
-              <FolderOpen className="h-6 w-6" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("customers.no_customers")}</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-              {q ? t("customers.no_search_results") : t("customers.empty_dir")}
-            </p>
-            {!q && (
-              <Button size="sm" onClick={openNew} className="mt-4">
-                <Plus className="h-4 w-4 ms-2" /> {t("customers.add_first")}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <DataTable columns={columns} data={filtered} />
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column - Directory List (2/3 width) */}
+        <div className="lg:col-span-8 space-y-6">
+          <motion.div variants={itemVariants} initial="hidden" animate="show">
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("customers.directory_title", { defaultValue: "Customer Directory" })}</GlowCardTitle>
+                <div className="relative w-full sm:w-72">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 rtl:right-3 rtl:left-auto" />
+                  <Input 
+                    className="ps-9 h-9 text-xs focus-visible:ring-indigo-500 placeholder-slate-400 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700" 
+                    placeholder={t("customers.search")} 
+                    value={q} 
+                    onChange={(e) => setQ(e.target.value)} 
+                  />
+                </div>
+              </GlowCardHeader>
+              <GlowCardContent className="p-0">
+                {loading ? (
+                  <div className="p-4"><TableSkeleton columns={5} rows={5} /></div>
+                ) : filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
+                      <FolderOpen className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("customers.no_customers")}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                      {q ? t("customers.no_search_results") : t("customers.empty_dir")}
+                    </p>
+                    {!q && (
+                      <Button size="sm" onClick={openNew} className="mt-4 shadow-sm shadow-indigo-600/10">
+                        <Plus className="h-4 w-4 me-2" /> {t("customers.add_first")}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <DataTable columns={columns} data={filtered} />
+                )}
+              </GlowCardContent>
+            </GlowCard>
+          </motion.div>
+        </div>
+
+        {/* Right Column - Top Customers Analytics (1/3 width) */}
+        <div className="lg:col-span-4 space-y-6">
+          <motion.div variants={itemVariants} initial="hidden" animate="show">
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t("customers.top_customers_revenue", { defaultValue: "Top Customers by Revenue" })}
+                </GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-80">
+                {customerRevenue.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                    No active customers
+                  </div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={customerRevenue} margin={{ top: 20, right: 10, left: 10, bottom: 5 }} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" tickFormatter={(v) => `E£${(v / 1000).toFixed(0)}k`} className="text-[10px] text-slate-400 font-medium" axisLine={false} tickLine={false} />
+                        <YAxis dataKey="company" type="category" width={80} className="text-[10px] font-semibold text-slate-600 dark:text-slate-300" axisLine={false} tickLine={false} />
+                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} formatter={(v: number) => formatCompactEGP(v)} />
+                        <Bar dataKey="revenue" name={t("customers.revenue", { defaultValue: "Revenue" })} radius={[0, 4, 4, 0]} barSize={20}>
+                          {customerRevenue.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
+          </motion.div>
+        </div>
+      </div>
 
       <CustomerDialog open={open} setOpen={setOpen} editing={editing} setEditing={setEditing} />
     </PageTransition>
@@ -139,7 +271,7 @@ function CustomerDialog({
   if (!editing) return null;
   const update = (patch: Partial<Customer>) => setEditing({ ...editing, ...patch });
   const save = () => {
-    if (!editing.name.trim()) return toast.error("Name is required");
+    if (!editing.name.trim()) return toast.error(t("customers.name_required", { defaultValue: "Name is required" }));
     db.upsertCustomer(editing);
     toast.success(t("customers.updated"));
     setOpen(false);

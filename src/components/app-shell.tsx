@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Plus, Users, Package, UserCog,
   BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker, Warehouse,
   Search, Bell, Sun, Moon, Star, ChevronLeft, ChevronRight, History,
-  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight
+  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight, Calendar
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import type { Role } from "@/lib/types";
@@ -32,6 +32,12 @@ interface NavItem {
   roles: Role[];
 }
 
+interface NavSection {
+  section: string;
+  sectionKey: string;
+  items: NavItem[];
+}
+
 const NAV: NavItem[] = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, roles: ["admin", "finance", "salesman"] },
   { to: "/deals/new", labelKey: "dashboard.new_deal", icon: Plus, roles: ["salesman", "admin"] },
@@ -44,6 +50,11 @@ const NAV: NavItem[] = [
   { to: "/audit", labelKey: "nav.audit", icon: ScrollText, roles: ["admin"] },
   { to: "/settings", labelKey: "nav.settings", icon: Settings, roles: ["admin"] },
 ];
+
+/** Group nav items into logical sections */
+const MAIN_ROUTES = ["/dashboard", "/deals/new", "/deals"];
+const MANAGEMENT_ROUTES = ["/customers", "/products", "/inventory", "/reports"];
+// Everything else goes into SYSTEM section
 
 interface SysNotification {
   id: string;
@@ -230,9 +241,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const SidebarContent = (
-    <div className="flex h-full flex-col bg-slate-900 text-slate-100 border-r border-slate-800 font-sans">
+    <div className="flex h-full flex-col bg-[#0B1120] text-slate-100 border-e border-[#1a2235] font-sans">
       {/* Brand Header */}
-      <div className={cn("flex items-center gap-3 px-5 py-5 border-b border-slate-800 transition-all duration-300", sidebarCollapsed ? "justify-center px-2" : "")}>
+      <div className={cn("flex items-center gap-3 px-5 py-5 transition-all duration-300", sidebarCollapsed ? "justify-center px-2" : "")}>
         {sidebarCollapsed ? (
           <img src="/logo-symbol.png" alt="UniChem" className="h-8 w-8 object-contain shrink-0" />
         ) : (
@@ -241,12 +252,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
-        <div className={cn("text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider", sidebarCollapsed ? "text-center px-0 text-[8px]" : "")}>
-          {sidebarCollapsed ? t("shell.nav_short") : t("shell.core_functions")}
-        </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1 scrollbar-thin scrollbar-thumb-slate-800">
+        {/* Section: Main */}
+        {!sidebarCollapsed && (
+          <div className="text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider">
+            {t("shell.core_functions")}
+          </div>
+        )}
         
-        {items.map((item) => {
+        {items.filter(i => MAIN_ROUTES.includes(i.to)).map((item) => {
           const active = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(item.to));
           const Icon = item.icon;
           return (
@@ -255,14 +269,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               to={item.to}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                "group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
+                "group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
                 active
-                  ? "bg-indigo-600 text-white font-medium shadow-md shadow-indigo-600/20"
-                  : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium shadow-md shadow-indigo-500/20"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
               )}
             >
               <div className="flex items-center gap-3">
-                <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-105", active ? "text-white" : "text-slate-400 group-hover:text-white")} />
+                <Icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform duration-200", active ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
                 {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
               </div>
               {!sidebarCollapsed && (
@@ -281,6 +295,66 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
           );
         })}
+
+        {/* Section: Management */}
+        {items.filter(i => MANAGEMENT_ROUTES.includes(i.to)).length > 0 && (
+          <>
+            <div className={cn("pt-4 mt-3 border-t border-slate-800/50", sidebarCollapsed ? "" : "")}>
+              {!sidebarCollapsed && (
+                <div className="text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider">
+                  {t("shell.section_management", { defaultValue: "Management" })}
+                </div>
+              )}
+            </div>
+            {items.filter(i => MANAGEMENT_ROUTES.includes(i.to)).map((item) => {
+              const active = pathname === item.to || pathname.startsWith(item.to);
+              const Icon = item.icon;
+              return (
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
+                    active ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium shadow-md shadow-indigo-500/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform duration-200", active ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+                    {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
+
+        {/* Section: System */}
+        {items.filter(i => !MAIN_ROUTES.includes(i.to) && !MANAGEMENT_ROUTES.includes(i.to)).length > 0 && (
+          <>
+            <div className="pt-4 mt-3 border-t border-slate-800/50">
+              {!sidebarCollapsed && (
+                <div className="text-[10px] uppercase font-bold text-slate-500 px-3 mb-2 tracking-wider">
+                  {t("shell.section_system", { defaultValue: "System" })}
+                </div>
+              )}
+            </div>
+            {items.filter(i => !MAIN_ROUTES.includes(i.to) && !MANAGEMENT_ROUTES.includes(i.to)).map((item) => {
+              const active = pathname === item.to || pathname.startsWith(item.to);
+              const Icon = item.icon;
+              return (
+                <Link key={item.to} to={item.to} onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "group relative flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
+                    active ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium shadow-md shadow-indigo-500/20" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={cn("h-4.5 w-4.5 shrink-0 transition-transform duration-200", active ? "text-white" : "text-slate-500 group-hover:text-slate-300")} />
+                    {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </>
+        )}
 
         {/* Favorites section in Sidebar */}
         {!sidebarCollapsed && favorites.length > 0 && (
@@ -308,12 +382,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       {/* User Footer Profile & Theme Switch */}
-      <div className="border-t border-slate-800 p-4 bg-slate-950/40">
+      <div className="p-4 mt-auto">
         {!sidebarCollapsed && (
-          <div className="mb-4 flex items-center justify-between rounded-lg bg-slate-800/30 p-2 border border-slate-800/40">
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-[#111827] p-2 border border-[#1f2937]">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[11px] text-slate-400 font-semibold tracking-wide">{t("shell.system_ok")}</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t("shell.system_ok")}</span>
             </div>
             <button
               onClick={toggleTheme}
@@ -388,7 +462,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main Panel */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Sticky Header */}
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 sm:px-6 print:hidden">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl px-4 sm:px-6 print:hidden shadow-[0_1px_3px_rgb(0_0_0/0.04)] dark:shadow-[0_1px_3px_rgb(0_0_0/0.15)]">
           <div className="flex items-center gap-3">
             {/* Sidebar toggle triggers */}
             <button
@@ -405,12 +479,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
 
             {/* Breadcrumbs */}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-              <Link to="/dashboard" className="hover:text-slate-600 dark:hover:text-slate-300">UniChem</Link>
+            <div className="hidden sm:flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+              <Link to="/dashboard" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">UniChem</Link>
               {getBreadcrumbs().map((b, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
-                  <span>/</span>
-                  <Link to={b.href} className="font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white capitalize">
+                <div key={idx} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-slate-300 dark:text-slate-600" />
+                  <Link to={b.href} className="font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white capitalize transition-colors">
                     {b.label}
                   </Link>
                 </div>
@@ -419,18 +493,35 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           {/* Quick Action Utilities */}
-          <div className="flex items-center gap-2">
-            {/* Global Search trigger */}
+          <div className="flex items-center gap-3">
+            {/* Search Input Trigger */}
             <button
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 px-3 py-1.5 rounded-lg text-xs transition"
+              className="hidden lg:flex items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/30 text-slate-400 w-64 px-3 py-1.5 rounded-lg text-sm transition justify-between"
             >
-              <Search className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">{t("shell.quick_search")}</span>
-              <kbd className="hidden md:inline-flex items-center gap-0.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold">
-                <Command className="h-2.5 w-2.5" />K
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                <span>Search anything...</span>
+              </div>
+              <kbd className="flex items-center gap-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold text-slate-500 shadow-sm">
+                <Command className="h-3 w-3" />K
               </kbd>
             </button>
+
+            {/* Date Picker Placeholder */}
+            <div className="hidden xl:flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300">
+               <Calendar className="h-4 w-4 text-slate-400" />
+               <span className="text-xs font-medium">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
+            </div>
+
+            {/* New Deal Button */}
+            {(user?.role === "salesman" || user?.role === "admin") && (
+              <Link to="/deals/new">
+                <Button className="hidden md:flex bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 rounded-lg px-4 h-9">
+                  <Plus className="h-4 w-4 me-1.5" /> {t("dashboard.new_deal", { defaultValue: "New Deal" })}
+                </Button>
+              </Link>
+            )}
 
             {/* Notification system center */}
             <Sheet>
@@ -555,7 +646,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile bottom quick-nav — primary routes always one tap away */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/70 bg-background/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] print:hidden">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] print:hidden shadow-[0_-1px_3px_rgb(0_0_0/0.05)] dark:shadow-[0_-1px_3px_rgb(0_0_0/0.2)]">
         <div className="grid grid-cols-4">
           {[
             { to: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
@@ -569,12 +660,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={to}
                 to={to}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors",
+                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
+                {active && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-primary" />}
                 <Icon className="h-4.5 w-4.5" />
                 <span className="truncate max-w-full px-1">{label}</span>
               </Link>
@@ -635,13 +727,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 export function PageHeader({
-  title, description, actions,
-}: { title: string; description?: string; actions?: ReactNode }) {
+  title, description, actions, icon: Icon,
+}: { title: string; description?: string; actions?: ReactNode; icon?: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
-      <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white md:text-3xl">{title}</h1>
-        {description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">{description}</p>}
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 pb-6 border-b border-transparent bg-[linear-gradient(to_right,var(--color-border),transparent)] bg-[length:100%_1px] bg-bottom bg-no-repeat">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary grid place-items-center shrink-0">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white md:text-3xl">{title}</h1>
+          {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+        </div>
       </div>
       {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
     </div>

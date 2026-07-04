@@ -30,11 +30,15 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   searchKey?: string
+  showSearch?: boolean
+  showColumnVisibility?: boolean
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  showSearch = true,
+  showColumnVisibility = true,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
@@ -82,42 +86,48 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative max-w-sm w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder={t("common.search", "Search all columns...")}
-            value={globalFilter ?? ""}
-            onChange={(event) => setGlobalFilter(String(event.target.value))}
-            className="pl-9 h-9 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus-visible:ring-indigo-500"
-          />
+      {(showSearch || showColumnVisibility) && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {showSearch && (
+            <div className="relative max-w-sm w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder={t("common.search", "Search all columns...")}
+                value={globalFilter ?? ""}
+                onChange={(event) => setGlobalFilter(String(event.target.value))}
+                className="pl-9 h-9 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus-visible:ring-indigo-500"
+              />
+            </div>
+          )}
+          {showColumnVisibility && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  {t("common.columns", "Columns")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[150px]">
+                {table
+                  .getAllColumns()
+                  .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                      >
+                        {column.id}
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50">
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              {t("common.columns", "Columns")}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[150px]">
-            {table
-              .getAllColumns()
-              .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                )
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      )}
 
       {/* Desktop Table View */}
       <div className="hidden md:block rounded-xl border border-slate-200 dark:border-slate-800 bg-card overflow-hidden">

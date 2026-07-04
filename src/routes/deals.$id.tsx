@@ -403,7 +403,7 @@ function DealDetails() {
           {/* Payment Method Section */}
           <Card className="border-slate-200 dark:border-slate-800 shadow-sm print:shadow-none print:border-0 print:m-0 print:p-0">
             <CardHeader className="pb-2 print:p-0 print:mb-2">
-              <CardTitle className="text-sm font-bold">Payment Method</CardTitle>
+              <CardTitle className="text-sm font-bold">{t("deals.payment_method", { defaultValue: "Payment Method" })}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">

@@ -28,11 +28,18 @@ function AuditPage() {
   const [actionFilter, setActionFilter] = useState("all");
   const [entityFilter, setEntityFilter] = useState("all");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 300);
     return () => clearTimeout(t);
   }, []);
+
+  // reset page to 1 when search or filter values change
+  useEffect(() => {
+    setPage(1);
+  }, [q, actionFilter, entityFilter]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -61,8 +68,10 @@ function AuditPage() {
     const matchesAction = actionFilter === "all" || normAction(e.action) === normAction(actionFilter);
     const matchesEntity = entityFilter === "all" || normEntity(e.entity) === normEntity(entityFilter);
 
-    return matchesSearch && matchesAction && matchesEntity;
   });
+
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const paginatedLogs = filteredLogs.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const getEntityIcon = (entity: string) => {
     switch (entity.toLowerCase()) {
@@ -126,9 +135,9 @@ function AuditPage() {
       return (
         <div className="mt-3 border-t border-slate-100 dark:border-slate-800/60 pt-3">
           <div className="grid grid-cols-3 gap-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-            <span>Property</span>
-            <span>Old Value</span>
-            <span>New Value</span>
+            <span>{t("audit.property", { defaultValue: "Property" })}</span>
+            <span>{t("audit.old_value", { defaultValue: "Old Value" })}</span>
+            <span>{t("audit.new_value", { defaultValue: "New Value" })}</span>
           </div>
           <div className="space-y-1.5">
             {filteredKeys.map((key) => {
@@ -196,10 +205,10 @@ function AuditPage() {
                 <SelectValue placeholder="Action" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="create">Create</SelectItem>
-                <SelectItem value="update">Update</SelectItem>
-                <SelectItem value="delete">Delete</SelectItem>
+                <SelectItem value="all">{t("audit.all_actions", { defaultValue: "All Actions" })}</SelectItem>
+                <SelectItem value="create">{t("audit.actions.create", { defaultValue: "Create" })}</SelectItem>
+                <SelectItem value="update">{t("audit.actions.update", { defaultValue: "Update" })}</SelectItem>
+                <SelectItem value="delete">{t("audit.actions.delete", { defaultValue: "Delete" })}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -209,11 +218,11 @@ function AuditPage() {
                 <SelectValue placeholder="Entity" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Entities</SelectItem>
-                <SelectItem value="deal">Deals</SelectItem>
-                <SelectItem value="product">Products</SelectItem>
-                <SelectItem value="customer">Customers</SelectItem>
-                <SelectItem value="profiles">Users</SelectItem>
+                <SelectItem value="all">{t("audit.all_entities", { defaultValue: "All Entities" })}</SelectItem>
+                <SelectItem value="deal">{t("audit.entities.deals", { defaultValue: "Deals" })}</SelectItem>
+                <SelectItem value="product">{t("audit.entities.products", { defaultValue: "Products" })}</SelectItem>
+                <SelectItem value="customer">{t("audit.entities.customers", { defaultValue: "Customers" })}</SelectItem>
+                <SelectItem value="profiles">{t("audit.entities.users", { defaultValue: "Users" })}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -252,7 +261,7 @@ function AuditPage() {
         <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           <CardContent className="p-0">
             <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filteredLogs.map((e) => {
+              {paginatedLogs.map((e) => {
                 const isExpanded = !!expandedIds[e.id];
                 return (
                   <div key={e.id} className="transition-all hover:bg-slate-50/30 dark:hover:bg-slate-900/5">
@@ -269,7 +278,7 @@ function AuditPage() {
                           <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed flex flex-wrap items-center gap-1.5">
                             <span className="font-bold text-slate-900 dark:text-white">{e.actorName}</span>
                             {getActionBadge(e.action)}
-                            <span className="text-slate-400 font-medium lowercase">on</span>
+                            <span className="text-slate-400 font-medium lowercase">{t("audit.on", { defaultValue: "on" })}</span>
                             <span className="font-semibold text-indigo-600 dark:text-indigo-400 capitalize">{e.entity}</span>
                           </div>
                           {!isExpanded && e.details && (
@@ -297,10 +306,10 @@ function AuditPage() {
                       <div className="px-4 pb-4 sm:px-6 sm:pb-5 pt-1 border-t border-slate-50 dark:border-slate-900/10 bg-slate-50/20 dark:bg-slate-950/5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 text-[10px] text-slate-400 dark:text-slate-500">
                           <div>
-                            <span className="font-semibold">Actor ID:</span> <span className="font-mono">{e.actorId}</span>
+                            <span className="font-semibold">{t("audit.actor_id", { defaultValue: "Actor ID:" })}</span> <span className="font-mono">{e.actorId}</span>
                           </div>
                           <div>
-                            <span className="font-semibold">Entity ID:</span> <span className="font-mono">{e.entityId || "N/A"}</span>
+                            <span className="font-semibold">{t("audit.entity_id", { defaultValue: "Entity ID:" })}</span> <span className="font-mono">{e.entityId || "N/A"}</span>
                           </div>
                         </div>
                         
@@ -312,6 +321,36 @@ function AuditPage() {
               })}
             </div>
           </CardContent>
+          {!loading && filteredLogs.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50/10 dark:bg-slate-900/10">
+              <div className="text-xs text-slate-500">
+                {t("common.showing", { defaultValue: "Showing" })} {paginatedLogs.length} {t("common.of", { defaultValue: "of" })} {filteredLogs.length} {t("audit.logs_title", { defaultValue: "Logs" })}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs border-slate-200 dark:border-slate-700"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  {t("common.previous", { defaultValue: "Previous" })}
+                </Button>
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-300 px-2">
+                  {page} / {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs border-slate-200 dark:border-slate-700"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  {t("common.next", { defaultValue: "Next" })}
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
     </PageTransition>

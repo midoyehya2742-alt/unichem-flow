@@ -16,6 +16,17 @@
     "desc_sales": "نظرة عامة على مسار المبيعات الخاص بك.",
     "desc_finance": "تدفقات نقدية، مدفوعات وفواتير موحدة للشركة.",
     "desc_admin": "ضوابط النظام الكاملة والأنشطة الإدارية.",
+    "greeting_morning": "صباح الخير",
+    "greeting_afternoon": "طاب مساؤك",
+    "greeting_evening": "مساء الخير",
+    "edit_requests_pending": "طلبات التعديل المعلقة",
+    "deals_await_review": "صفقة (صفقات) بانتظار مراجعتك.",
+    "submitted_to_console": "تم التقديم لوحدة التحكم",
+    "sum_deal_values": "مجموع قيم الصفقات",
+    "total_validated_receipts": "إجمالي الإيصالات المعتمدة",
+    "open_requests_one": "طلب واحد مفتوح",
+    "open_requests_other": "{{count}} طلبات مفتوحة",
+    "no_deals_desc": "أنشئ أول صفقة للبدء.",
     "new_deal": "صفقة جديدة",
     "inventory_alert": "تنبيه المخزون:",
     "low_stock_msg": "{{count}} أصناف كيميائية عند الحد الأدنى أو تحته.",
@@ -45,7 +56,24 @@
     "products_in_catalog": "المنتجات في الكتالوج",
     "active_customers": "العملاء النشطون",
     "global_movements": "سجل الحركات العام",
-    "movements_logged": "{{count}} مسجلة"
+    "movements_logged": "{{count}} مسجلة",
+    "pipeline": "إجمالي المسار",
+    "collected": "المستحقات المحصلة",
+    "growth": "النمو (شهري)",
+    "profit": "الربح (منذ بداية الشهر)",
+    "sales_funnel": "قمع المبيعات",
+    "total_pipeline_deals": "إجمالي المسار (صفقات)",
+    "in_progress_unpaid_partial": "قيد التنفيذ (غير مدفوع / جزئي)",
+    "won_fully_paid": "تم الفوز (مدفوع بالكامل)",
+    "collections_7_days": "التحصيلات (7 أيام)",
+    "receivables_aging": "أعمار الديون",
+    "days_short": "يوم",
+    "avg_aging": "متوسط عمر الدين",
+    "aging_current": "حالي",
+    "aging_30_60": "30-60 يوم",
+    "aging_60_plus": "60+ يوم",
+    "recent_deal_workflows": "سير عمل الصفقات الأخيرة",
+    "recent_deal_workflows_desc": "تتبع حالة أحدث الصفقات النشطة في المسار."
   },
   "common": {
     "search": "بحث...",
@@ -53,6 +81,7 @@
     "cancel": "تجاهل التغييرات",
     "delete": "حذف",
     "edit": "تعديل",
+    "review": "مراجعة",
     "view_all": "عرض الكل",
     "date": "التاريخ",
     "status": {
@@ -68,9 +97,19 @@
       "cancel": "تجاهل التغييرات",
       "save": "حفظ"
     },
-    "columns": "الأعمدة"
+    "columns": "الأعمدة",
+    "showing": "عرض",
+    "of": "من",
+    "previous": "السابق",
+    "next": "التالي"
   },
   "inventory": {
+    "total_items": "إجمالي عناصر المخزون",
+    "stock_value": "القيمة التقديرية للمخزون",
+    "safety_buffer_status": "حالة المخزون الآمن",
+    "current_stock_levels": "مستويات المخزون الحالية",
+    "movement_ledger_7d": "دفتر حركة المخزون (أخر 7 أيام)",
+    "movement_logs": "سجلات الحركة",
     "desc": "إدارة المركبات الكيميائية، مراقبة مستويات المخزون، وتتبع حركات التوريد.",
     "add_product": "إضافة منتج",
     "edit_product": "تعديل المنتج",
@@ -111,7 +150,9 @@
       "change": "التغيير",
       "after": "بعد",
       "user": "المستخدم",
-      "reason": "السبب"
+      "reason": "السبب",
+      "not_found": "لم يتم العثور على إجراء",
+      "no_search": "لا توجد نتائج تطابق كلمة البحث"
     },
     "archived": "تم أرشفة المنتج",
     "no_products": "لم يتم العثور على منتجات",
@@ -134,6 +175,9 @@
     "stock_adjusted": "تم تعديل كمية المخزون"
   },
   "customers": {
+    "total_customers": "إجمالي العملاء",
+    "new_customers_30d": "عملاء جدد (30 يوم)",
+    "active_ordering_30d": "طلب نشط (30 يوم)",
     "desc": "الحفاظ على حسابات العملاء، سجلات الفواتير، وتفاصيل جهات الاتصال في الدليل.",
     "new_customer": "عميل جديد",
     "search": "البحث عن اسم العميل أو الشركة...",
@@ -150,9 +194,19 @@
     "add_first": "إضافة أول عميل",
     "edit_profile": "تعديل ملف العميل",
     "create_record": "إنشاء سجل عميل",
-    "updated": "تم تحديث سجل العميل"
+    "updated": "تم تحديث سجل العميل",
+    "top_customers_revenue": "أفضل العملاء من حيث الإيرادات"
   },
   "deals": {
+    "daily_sales_collections": "المبيعات والتحصيلات اليومية (أخر 15 يوم)",
+    "total_deals": "إجمالي الصفقات",
+    "pipeline_value": "قيمة المسار",
+    "collected_value": "المحصل الإجمالي",
+    "salesperson_performance": "أداء المندوبين",
+    "customer": "العميل",
+    "deal_ref": "مرجع الصفقة",
+    "status": "الحالة",
+    "value": "القيمة",
     "price": "السعر (جنيه)",
     "desc_salesman": "مراجعة وتتبع معاملات مسار المبيعات الخاص بك.",
     "desc_admin": "دفتر الأستاذ العام لتدقيق الصفقات عبر جميع الوكلاء.",
@@ -254,6 +308,18 @@
     "attachment_unavailable": "المرفق غير متاح"
   },
   "products": {
+    "total_products": "إجمالي المنتجات",
+    "average_price": "متوسط السعر",
+    "low_stock": "تنبيهات انخفاض المخزون",
+    "category_valuation_volume": "تقييم الفئة وحجمها",
+    "catalog_share": "حصة كتالوج المنتجات",
+    "total_items": "إجمالي العناصر",
+    "catalog_title": "كتالوج المنتجات",
+    "archive_confirm_title": "أرشفة المنتج؟",
+    "archive_confirm_desc": "سيتم أرشفة هذا المنتج ولن يظهر بعد ذلك في عمليات بحث الكتالوج النشطة. سيتم الاحتفاظ بسجلات المخزون الحالية.",
+    "actions": {
+      "archive": "أرشفة"
+    },
     "title": "كتالوج المنتجات",
     "desc": "قم بتكوين أوصاف المنتج، المجموعات الكيميائية، الوحدات القياسية ونقاط السعر.",
     "new_product": "منتج جديد",
@@ -307,9 +373,26 @@
     "top_products": "أعلى إيرادات كتالوج المنتجات",
     "products_desc": "أعلى العناصر الكيميائية إيراداً (جنيه)",
     "no_product_sales": "لم يتم تسجيل مبيعات منتجات.",
-    "gross_revenue": "إجمالي الإيرادات"
+    "gross_revenue": "إجمالي الإيرادات",
+    "revenue_collection_trend": "اتجاه الإيرادات والتحصيلات",
+    "sales_booked": "المبيعات المحجوزة",
+    "cash_collected": "النقد المحصل",
+    "payment_clearance": "توزيع المدفوعات",
+    "transaction_ledger": "دفتر المعاملات المفصل"
   },
   "users": {
+    "total_personnel": "إجمالي الموظفين",
+    "registered_accounts": "الحسابات المسجلة",
+    "sys_admins": "مديري النظام",
+    "full_access": "صلاحيات كاملة",
+    "revoked_access": "صلاحيات ملغاة",
+    "inactive_accounts": "حسابات غير نشطة",
+    "personnel_directory": "دليل الموظفين",
+    "search_placeholder": "البحث عن موظف...",
+    "no_users_found": "لم يتم العثور على موظفين",
+    "no_search_results": "لا يوجد موظفين يطابقون كلمة البحث.",
+    "delete_confirm_title": "تأكيد الحذف",
+    "delete_confirm_desc": "هذا سيؤدي إلى حذف حساب المستخدم بشكل دائم. لا يمكن التراجع عن هذا الإجراء.",
     "title": "دليل الموظفين",
     "desc": "قم بتوفير الحسابات وتعيين أدوار النظام وإلغاء الوصول إلى المنصة.",
     "new_user": "مستخدم جديد",
@@ -354,6 +437,9 @@
     }
   },
   "shell": {
+    "section_management": "الإدارة",
+    "section_finance": "المالية",
+    "section_system": "النظام",
     "core_functions": "الوظائف الأساسية",
     "nav_short": "تنقل",
     "favorites": "المفضلة",
@@ -399,9 +485,31 @@
     "upload_logo": "تحميل الشعار",
     "logo_hint": "بعد التحميل، انقر على حفظ الإعدادات أعلاه للاحتفاظ بالشعار.",
     "governance": "حوكمة النظام",
-    "gov_desc": "تؤثر الإعدادات المكونة على هذه الشاشة على تقديرات الضرائب وتكوينات العناوين لجميع المستخدمين النشطين المتصلين على الفور. قم بتعديل المعلمات بحذر."
+    "gov_desc": "تؤثر الإعدادات المكونة على هذه الشاشة على تقديرات الضرائب وتكوينات العناوين لجميع المستخدمين النشطين المتصلين على الفور. قم بتعديل المعلمات بحذر.",
+    "system_pref": "تفضيلات النظام وواجهة المستخدم",
+    "system_pref_desc": "تخصيص مظهر الواجهة واللغة وتنسيقات التاريخ وإعدادات المنطقة الزمنية.",
+    "language": "اللغة",
+    "theme": "مظهر الواجهة",
+    "theme_light": "المظهر الفاتح",
+    "theme_dark": "المظهر الداكن",
+    "date_format": "تنسيق التاريخ",
+    "date_format_default": "الافتراضي (4 يوليو 2026)",
+    "date_format_numeric": "رقمي (04/07/2026)",
+    "date_format_iso": "معيار ISO (2026-07-04)",
+    "timezone": "المنطقة الزمنية للنظام",
+    "timezone_local": "توقيت المتصفح المحلي",
+    "timezone_riyadh": "الرياض، المملكة العربية السعودية (AST, UTC+3)",
+    "timezone_utc": "التوقيت العالمي المنسق (UTC)"
   },
   "no_results": "لا توجد بيانات للعرض",
   "showing_rows": "عرض {{count}} صف",
-  "no_match_filters": "لم نتمكن من العثور على أي شيء يطابق عوامل التصفية أو مصطلحات البحث الحالية."
+  "no_match_filters": "لم نتمكن من العثور على أي شيء يطابق عوامل التصفية أو مصطلحات البحث الحالية.",
+  "root": {
+    "page_not_found": "الصفحة غير موجودة",
+    "page_does_not_exist": "الصفحة التي تبحث عنها غير موجودة.",
+    "go_home": "العودة للرئيسية",
+    "something_went_wrong": "حدث خطأ ما",
+    "try_refreshing": "حاول تحديث الصفحة.",
+    "try_again": "المحاولة مرة أخرى"
+  }
 }

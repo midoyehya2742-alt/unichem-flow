@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PackagePlus, Pencil, Trash2, Search, Download, Printer, Plus, Minus, RefreshCw, PackageOpen } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatDateTime, formatNumber, formatCompactEGP } from "@/lib/format";
 import type { InventoryAdjustmentType, Product, User, InventoryMovement } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -30,6 +30,13 @@ import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageTransition } from "@/components/ui/page-transition";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, AreaChart, Area, Legend } from "recharts";
+import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+import { KpiCard } from "@/components/ui/kpi-card";
+import { motion } from "framer-motion";
+import { AlertTriangle, Package, TrendingUp } from "lucide-react";
+
 
 export const Route = createFileRoute("/inventory")({
   head: () => ({ meta: [{ title: "Inventory - UniChem ERP" }] }),
@@ -70,7 +77,64 @@ function InventoryPage() {
   }), [products, query, category, lowOnly]);
 
   const lowCount = products.filter((p) => p.stockQuantity <= p.minimumStockLevel).length;
-  const totalStock = products.reduce((sum, p) => sum + p.stockQuantity, 0);
+  const totalStock = products.reduce((acc, p) => acc + p.stockQuantity, 0);
+  const totalStockValue = products.reduce((acc, p) => acc + p.stockQuantity * p.defaultPrice, 0);
+
+  const movementHistoryData = useMemo(() => {
+    const dates: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().split("T")[0]);
+    }
+
+    const dailyData = dates.reduce((acc, date) => {
+      acc[date] = { date, inward: 0, outward: 0 };
+      return acc;
+    }, {} as Record<string, { date: string; inward: number; outward: number }>);
+
+    movements.forEach(m => {
+      const date = m.createdAt.split("T")[0];
+      if (dailyData[date]) {
+        const qty = Math.abs(m.quantityChanged);
+        if (m.type === "increase" || (m.type === "correction" && m.quantityChanged > 0)) {
+          dailyData[date].inward += qty;
+        } else {
+          dailyData[date].outward += qty;
+        }
+      }
+    });
+
+    return Object.values(dailyData).map(d => {
+      const dateObj = new Date(d.date);
+      const label = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return {
+        ...d,
+        label
+      };
+    });
+  }, [movements]);
+
+  const categoryStockData = useMemo(() => {
+    const stats: Record<string, { name: string; current: number; minimum: number }> = {};
+    products.forEach(p => {
+      if (!stats[p.category]) {
+        stats[p.category] = { name: p.category, current: 0, minimum: 0 };
+      }
+      stats[p.category].current += p.stockQuantity;
+      stats[p.category].minimum += p.minimumStockLevel;
+    });
+    return Object.values(stats).sort((a, b) => b.current - a.current);
+  }, [products]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
 
   const openNew = () => {
     setEditing({
@@ -280,65 +344,234 @@ function InventoryPage() {
         </div>
       </div>
 
-      <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans print:hidden">
-        <PageHeader
-          title={t("nav.inventory")}
-          description={t("inventory.desc")}
-          actions={user?.role !== "salesman" && <Button size="sm" onClick={openNew} className="h-9 text-xs"><PackagePlus className="h-4 w-4 ms-2" />{t("inventory.add_product")}</Button>}
-        />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label={t("inventory.total_lines")} value={formatNumber(products.length)} />
-        <Stat label={t("inventory.total_stock")} value={formatNumber(totalStock)} />
-        <Stat label={t("inventory.low_stock")} value={formatNumber(lowCount)} tone={lowCount ? "warning" : "normal"} />
-      </div>
+    <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
+      <PageHeader
+        title={t("nav.inventory")}
+        description={t("inventory.desc")}
+        actions={<Button size="sm" onClick={openNew} className="h-9 text-xs shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all"><Plus className="h-3.5 w-3.5 me-2" />{t("inventory.add_product")}</Button>}
+      />
 
-      <Tabs defaultValue="current" className="space-y-4">
-        <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-          <TabsTrigger value="current" className="rounded-lg text-xs font-semibold">{t("inventory.catalog")}</TabsTrigger>
-          <TabsTrigger value="history" className="rounded-lg text-xs font-semibold">{t("inventory.ledger")}</TabsTrigger>
-        </TabsList>
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="grid gap-4 grid-cols-1 sm:grid-cols-3"
+      >
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={Package}
+            label={t("inventory.total_items", { defaultValue: "Total Inventory Items" })}
+            value={totalStock.toString()}
+            numericValue={totalStock}
+            formatter={(v) => formatNumber(Math.round(v))}
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={AlertTriangle}
+            label={t("inventory.low_stock", { defaultValue: "Low Stock Alerts" })}
+            value={lowCount.toString()}
+            numericValue={lowCount}
+            formatter={(v) => Math.round(v).toString()}
+            tone={lowCount > 0 ? "danger" : "success"}
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={TrendingUp}
+            label={t("inventory.stock_value", { defaultValue: "Est. Inventory Value" })}
+            value={formatCompactEGP(totalStockValue)}
+            numericValue={totalStockValue}
+            formatter={(v) => formatCompactEGP(v)}
+            tone="success"
+          />
+        </motion.div>
+      </motion.div>
 
-        <TabsContent value="current" className="space-y-4">
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardContent className="p-4 grid gap-3 lg:grid-cols-[1fr_200px_200px_auto_auto]">
-              <div className="relative">
-                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 rtl:right-3 rtl:left-auto" />
-                <Input className="ps-9 h-10 text-xs focus-visible:ring-indigo-500" placeholder={t("inventory.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
-              </div>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-10 text-xs"><SelectValue placeholder={t("inventory.all_categories")} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t("inventory.all_categories")}</SelectItem>
-                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={lowOnly} onValueChange={setLowOnly}>
-                <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t("inventory.all_levels")}</SelectItem>
-                  <SelectItem value="low">{t("inventory.low_stock_only")}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" className="h-10 text-xs" onClick={exportExcel}><Download className="h-4 w-4 ms-2" />{t("common.actions.export")}</Button>
-              <Button variant="outline" className="h-10 text-xs" onClick={() => window.print()}><Printer className="h-4 w-4 ms-2" />{t("common.actions.print")}</Button>
-            </CardContent>
-          </Card>
+      <motion.div variants={itemVariants} initial="hidden" animate="show">
+        <Tabs defaultValue="stock" className="space-y-4">
+          <TabsList className="bg-slate-100/50 dark:bg-slate-800/50 p-1 border-slate-200/60 dark:border-slate-700">
+            <TabsTrigger value="stock" className="text-xs font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm px-4">
+              <PackageOpen className="h-3.5 w-3.5 me-1.5" />
+              {t("inventory.catalog")}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm px-4">
+              <RefreshCw className="h-3.5 w-3.5 me-1.5" />
+              {t("inventory.ledger")}
+            </TabsTrigger>
+          </TabsList>
 
-          {loading ? (
-            <TableSkeleton columns={6} rows={5} />
-          ) : (
-            <DataTable columns={productColumns} data={filtered} />
-          )}
-        </TabsContent>
+          <TabsContent value="stock" className="space-y-6 m-0">
+            {/* Top - Safety Buffer Chart (Full Width) */}
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("inventory.safety_buffer_status", { defaultValue: "Safety Buffer Status" })}</GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-72">
+                {categoryStockData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">No category stock data</div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={categoryStockData} margin={{ top: 20, right: 20, bottom: 20, left: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} className="text-slate-400 font-medium" />
+                        <YAxis className="text-[10px]" tickFormatter={(v) => formatNumber(v)} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              const ratio = data.minimum > 0 ? (data.current / data.minimum).toFixed(1) : "N/A";
+                              return (
+                                <div className="bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl text-xs space-y-1">
+                                  <p className="font-bold text-slate-900 dark:text-white">{data.name}</p>
+                                  <p className="text-emerald-500 font-medium">{t("inventory.stock", { defaultValue: "Stock" })}: {formatNumber(data.current)}</p>
+                                  <p className="text-amber-500 font-medium">{t("inventory.threshold", { defaultValue: "Safety Level" })}: {formatNumber(data.minimum)}</p>
+                                  <p className="text-slate-400 font-medium">{t("inventory.ratio", { defaultValue: "Ratio" })}: {ratio}x</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="current" name={t("inventory.stock", { defaultValue: "Stock" })} fill="#10b981" radius={[3, 3, 0, 0]} barSize={24} />
+                        <Bar dataKey="minimum" name={t("inventory.threshold", { defaultValue: "Safety Level" })} fill="#f59e0b" radius={[3, 3, 0, 0]} barSize={24} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
 
-        <TabsContent value="history" className="space-y-4">
-          <div className="flex justify-end mb-2">
-            <Button variant="outline" size="sm" onClick={exportHistory} className="h-8 text-xs"><Download className="h-3.5 w-3.5 ms-2" />{t("common.actions.export")}</Button>
-          </div>
-          <DataTable columns={historyColumns} data={movements} />
-        </TabsContent>
-      </Tabs>
+            {/* Bottom - Stock Table (Full Width) */}
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("inventory.current_stock_levels", { defaultValue: "Current Stock Levels" })}</GlowCardTitle>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="h-3.5 w-3.5 absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input className="ps-8 h-8 text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 placeholder-slate-400" placeholder={t("inventory.search")} value={query} onChange={(e) => setQuery(e.target.value)} />
+                  </div>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="w-full sm:w-[130px] h-8 text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+                      <SelectValue placeholder={t("inventory.category")} />
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      <SelectItem value="all">{t("inventory.all_categories")}</SelectItem>
+                      {categories.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={lowOnly} onValueChange={setLowOnly}>
+                    <SelectTrigger className="w-full sm:w-[130px] h-8 text-xs bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+                      <SelectValue placeholder={t("inventory.all_levels")} />
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      <SelectItem value="all">{t("inventory.all_levels")}</SelectItem>
+                      <SelectItem value="low">{t("inventory.low_stock_only")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={exportExcel} className="h-8 text-xs gap-1.5 w-full sm:w-auto border-slate-200 dark:border-slate-700">
+                    <Download className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{t("common.actions.export")}</span>
+                  </Button>
+                </div>
+              </GlowCardHeader>
+              <GlowCardContent className="p-0">
+                {loading ? (
+                  <div className="p-4"><TableSkeleton columns={6} rows={5} /></div>
+                ) : filtered.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 grid place-items-center mb-4">
+                      <PackageOpen className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("inventory.no_products")}</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm">{t("inventory.no_search_results")}</p>
+                  </div>
+                ) : (
+                  <DataTable columns={productColumns} data={filtered} showSearch={false} />
+                )}
+              </GlowCardContent>
+            </GlowCard>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-6 m-0">
+            {/* Top movement ledger flow chart (Full Width inside tab) */}
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("inventory.movement_ledger_7d", { defaultValue: "Inventory Movement Ledger (Last 7 Days)" })}</GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-80">
+                {movementHistoryData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">No movement history</div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={movementHistoryData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <defs>
+                          <linearGradient id="colorInward" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorOutward" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="label" className="text-[10px] text-slate-400 font-medium" />
+                        <YAxis className="text-[10px]" tickFormatter={(v) => formatNumber(v)} label={{ value: t("inventory.units_flowed", { defaultValue: "Units Flowed" }), angle: -90, position: "insideLeft", style: { fontSize: 10 } }} />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white dark:bg-slate-900 p-3 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl text-xs space-y-1">
+                                  <p className="font-bold text-slate-900 dark:text-white">{data.date}</p>
+                                  <p className="text-emerald-500 font-medium">{t("inventory.inward_stock_in", { defaultValue: "Inward (Stock In)" })}: {formatNumber(data.inward)} {t("inventory.units", { defaultValue: "units" })}</p>
+                                  <p className="text-rose-500 font-medium">{t("inventory.outward_stock_out", { defaultValue: "Outward (Stock Out)" })}: {formatNumber(data.outward)} {t("inventory.units", { defaultValue: "units" })}</p>
+                                  <p className="text-slate-500 font-medium">{t("inventory.net_change", { defaultValue: "Net Change" })}: {formatNumber(data.inward - data.outward)} {t("inventory.units", { defaultValue: "units" })}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: 11 }} />
+                        <Area type="monotone" dataKey="inward" name={t("inventory.inward_desc", { defaultValue: "Stock Inward (Purchased/Added)" })} stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorInward)" />
+                        <Area type="monotone" dataKey="outward" name={t("inventory.outward_desc", { defaultValue: "Stock Outward (Sold/Removed)" })} stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorOutward)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
+
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("inventory.movement_logs", { defaultValue: "Movement Logs" })}</GlowCardTitle>
+                <Button variant="outline" size="sm" onClick={exportHistory} className="h-8 text-xs border-slate-200 dark:border-slate-700">
+                  <Download className="h-3.5 w-3.5 me-1.5" />
+                  {t("common.actions.export")} CSV
+                </Button>
+              </GlowCardHeader>
+              <GlowCardContent className="p-0">
+                {loading ? (
+                  <div className="p-4"><TableSkeleton columns={5} rows={5} /></div>
+                ) : movements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">No logs found</p>
+                  </div>
+                ) : (
+                  <DataTable columns={historyColumns} data={movements} showSearch={false} />
+                )}
+              </GlowCardContent>
+            </GlowCard>
+          </TabsContent>
+        </Tabs>
+      </motion.div>
 
       {editing && (
         <ProductDialog

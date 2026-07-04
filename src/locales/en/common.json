@@ -16,6 +16,17 @@
     "desc_sales": "Here is your personal pipeline overview.",
     "desc_finance": "Unified company cashflow, payments, and invoices.",
     "desc_admin": "Complete system controls and administrative activities.",
+    "greeting_morning": "Good Morning",
+    "greeting_afternoon": "Good Afternoon",
+    "greeting_evening": "Good Evening",
+    "edit_requests_pending": "Edit Requests Pending",
+    "deals_await_review": "deal(s) await your review.",
+    "submitted_to_console": "Submitted to console",
+    "sum_deal_values": "Sum of deal values",
+    "total_validated_receipts": "Total validated receipts",
+    "open_requests_one": "1 open request",
+    "open_requests_other": "{{count}} open requests",
+    "no_deals_desc": "Create your first deal to get started.",
     "new_deal": "New Deal",
     "inventory_alert": "Inventory Alert:",
     "low_stock_msg": "{{count}} chemical items are at or below minimum reserve thresholds.",
@@ -45,7 +56,24 @@
     "products_in_catalog": "Products in catalog",
     "active_customers": "Active Customers",
     "global_movements": "Global Movements log",
-    "movements_logged": "{{count}} logged"
+    "movements_logged": "{{count}} logged",
+    "pipeline": "Total Pipeline",
+    "collected": "Collected Cash",
+    "growth": "Growth (MoM)",
+    "profit": "Profit (MTD)",
+    "sales_funnel": "Sales Funnel",
+    "total_pipeline_deals": "Total Pipeline (Deals)",
+    "in_progress_unpaid_partial": "In Progress (Unpaid/Partial)",
+    "won_fully_paid": "Won (Fully Paid)",
+    "collections_7_days": "Collections (7 Days)",
+    "receivables_aging": "Receivables Aging",
+    "days_short": "d",
+    "avg_aging": "Avg Aging",
+    "aging_current": "Current",
+    "aging_30_60": "30-60",
+    "aging_60_plus": "60+",
+    "recent_deal_workflows": "Recent Deal Workflows",
+    "recent_deal_workflows_desc": "Track the status of your latest active deals in the pipeline."
   },
   "common": {
     "search": "Search...",
@@ -53,6 +81,7 @@
     "cancel": "Discard changes",
     "delete": "Delete",
     "edit": "Edit",
+    "review": "Review",
     "view_all": "View all",
     "date": "Date",
     "status": {
@@ -66,11 +95,23 @@
       "print_invoice": "Print invoice",
       "title": "Actions",
       "cancel": "Discard changes",
-      "save": "Save"
+      "save": "Save",
+      "not_found": "Action not found",
+      "no_search": "No matching action results"
     },
-    "columns": "Columns"
+    "columns": "Columns",
+    "showing": "Showing",
+    "of": "of",
+    "previous": "Previous",
+    "next": "Next"
   },
   "inventory": {
+    "total_items": "Total Inventory Items",
+    "stock_value": "Est. Inventory Value",
+    "safety_buffer_status": "Safety Buffer Status",
+    "current_stock_levels": "Current Stock Levels",
+    "movement_ledger_7d": "Inventory Movement Ledger (Last 7 Days)",
+    "movement_logs": "Movement Logs",
     "desc": "Manage chemical compounds, monitor stock levels, and track supply movements.",
     "add_product": "Add Product",
     "edit_product": "Edit product",
@@ -134,6 +175,9 @@
     "stock_adjusted": "Stock quantity adjusted"
   },
   "customers": {
+    "total_customers": "Total Customers",
+    "new_customers_30d": "New Customers (30d)",
+    "active_ordering_30d": "Active Ordering (30d)",
     "desc": "Maintain client accounts, corporate billing records, and directory contact details.",
     "new_customer": "New Customer",
     "search": "Search customers name or company...",
@@ -150,9 +194,19 @@
     "add_first": "Add First Customer",
     "edit_profile": "Edit customer profile",
     "create_record": "Create customer record",
-    "updated": "Customer record updated"
+    "updated": "Customer record updated",
+    "top_customers_revenue": "Top Customers by Revenue"
   },
   "deals": {
+    "daily_sales_collections": "Daily Sales & Collections (Last 15 Days)",
+    "total_deals": "Total Deals",
+    "pipeline_value": "Pipeline Value",
+    "collected_value": "Total Collected",
+    "salesperson_performance": "Salesperson Performance",
+    "customer": "Customer",
+    "deal_ref": "Deal Ref",
+    "status": "Status",
+    "value": "Value",
     "price": "Price (EGP)",
     "desc_salesman": "Review and track your pipeline transactions.",
     "desc_admin": "Global ledger auditing deals across all agents.",
@@ -254,6 +308,18 @@
     "attachment_unavailable": "Attachment is unavailable"
   },
   "products": {
+    "total_products": "Total Products",
+    "average_price": "Average Price",
+    "low_stock": "Low Stock Alerts",
+    "category_valuation_volume": "Category Valuation & Volume",
+    "catalog_share": "Product Catalog Share",
+    "total_items": "Total Items",
+    "catalog_title": "Product Catalog",
+    "archive_confirm_title": "Archive Product?",
+    "archive_confirm_desc": "This product will be archived and will no longer appear in active catalog searches. Current inventory logs will be preserved.",
+    "actions": {
+      "archive": "Archive"
+    },
     "title": "Product Catalog",
     "desc": "Configure product descriptions, chemical groups, standard units, and price points.",
     "new_product": "New Product",
@@ -307,9 +373,26 @@
     "top_products": "Top Product Catalog Revenue",
     "products_desc": "Highest grossing chemical items (EGP)",
     "no_product_sales": "No product sales logged.",
-    "gross_revenue": "Gross Revenue"
+    "gross_revenue": "Gross Revenue",
+    "revenue_collection_trend": "Revenue & Collections Trend",
+    "sales_booked": "Sales Booked",
+    "cash_collected": "Cash Collected",
+    "payment_clearance": "Payment Clearance",
+    "transaction_ledger": "Detailed Transaction Ledger"
   },
   "users": {
+    "total_personnel": "Total Personnel",
+    "registered_accounts": "Registered accounts",
+    "sys_admins": "System Administrators",
+    "full_access": "Full access",
+    "revoked_access": "Revoked Access",
+    "inactive_accounts": "Inactive accounts",
+    "personnel_directory": "Personnel Directory",
+    "search_placeholder": "Search personnel...",
+    "no_users_found": "No personnel found",
+    "no_search_results": "No users match your search query.",
+    "delete_confirm_title": "Are you sure?",
+    "delete_confirm_desc": "This will permanently delete this user account. This action cannot be undone.",
     "title": "Employee Directory",
     "desc": "Provision accounts, assign system roles, and revoke platform access.",
     "new_user": "New User",
@@ -354,6 +437,9 @@
     }
   },
   "shell": {
+    "section_management": "Management",
+    "section_finance": "Finance",
+    "section_system": "System",
     "core_functions": "Core Functions",
     "nav_short": "NAV",
     "favorites": "Favorites",
@@ -399,9 +485,31 @@
     "upload_logo": "Upload Logo",
     "logo_hint": "After uploading, click Save Settings above to persist the logo.",
     "governance": "System Governance",
-    "gov_desc": "Settings configured on this screen affect tax estimates and title configurations for all connected active users immediately. Modify parameters with care."
+    "gov_desc": "Settings configured on this screen affect tax estimates and title configurations for all connected active users immediately. Modify parameters with care.",
+    "system_pref": "System & UI Preferences",
+    "system_pref_desc": "Customize interface theme, language, date formats, and timezone settings.",
+    "language": "Language",
+    "theme": "Interface Theme",
+    "theme_light": "Light Mode",
+    "theme_dark": "Dark Mode",
+    "date_format": "Date Format",
+    "date_format_default": "Default (4 Jul 2026)",
+    "date_format_numeric": "Numeric (04/07/2026)",
+    "date_format_iso": "ISO Standard (2026-07-04)",
+    "timezone": "System Timezone",
+    "timezone_local": "Browser Local Time",
+    "timezone_riyadh": "Riyadh, KSA (AST, UTC+3)",
+    "timezone_utc": "Coordinated Universal Time (UTC)"
   },
   "no_results": "No data to display",
   "showing_rows": "Showing {{count}} rows",
-  "no_match_filters": "We couldn't find anything matching your current filters or search terms."
+  "no_match_filters": "We couldn't find anything matching your current filters or search terms.",
+  "root": {
+    "page_not_found": "Page not found",
+    "page_does_not_exist": "The page you're looking for doesn't exist.",
+    "go_home": "Go home",
+    "something_went_wrong": "Something went wrong",
+    "try_refreshing": "Try refreshing the page.",
+    "try_again": "Try again"
+  }
 }

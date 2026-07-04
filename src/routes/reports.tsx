@@ -9,13 +9,21 @@ import {
 } from "@/components/ui/select";
 import { Download, TrendingUp, BarChart3, Wallet, FileSpreadsheet, Percent, AreaChart as ChartIcon } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
-import { formatEGP, formatDate } from "@/lib/format";
+import { formatEGP, formatDate, formatNumber, formatCompactEGP } from "@/lib/format";
+import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { motion } from "framer-motion";
+import { PageTransition } from "@/components/ui/page-transition";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
+  AreaChart, Area, Line, PieChart, Pie, Legend, ComposedChart
 } from "recharts";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
+import { ColumnDef } from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({ meta: [{ title: "Reports — UniChem ERP" }] }),
@@ -30,6 +38,16 @@ function ReportsPage() {
   const { t } = useTranslation("common");
   const [range, setRange] = useState<Range>("30d");
   const [loading, setLoading] = useState(true);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 400);
@@ -62,6 +80,103 @@ function ReportsPage() {
     return acc;
   }, {})).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
 
+  const trendData = useMemo(() => {
+    const dailyMap: Record<string, { date: string; dateObj: Date; sales: number; collections: number }> = {};
+    
+    const sortedDeals = [...filtered].sort((a, b) => new Date(a.dealDate).getTime() - new Date(b.dealDate).getTime());
+    
+    sortedDeals.forEach((d) => {
+      const dateKey = d.dealDate.split("T")[0];
+      if (!dailyMap[dateKey]) {
+        dailyMap[dateKey] = {
+          date: formatDate(d.dealDate),
+          dateObj: new Date(d.dealDate),
+          sales: 0,
+          collections: 0,
+        };
+      }
+      dailyMap[dateKey].sales += d.total;
+      dailyMap[dateKey].collections += d.amountPaid;
+    });
+
+    return Object.values(dailyMap).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+  }, [filtered]);
+
+  const paymentStatusData = useMemo(() => {
+    let paidCount = 0, partialCount = 0, unpaidCount = 0;
+    let paidValue = 0, partialValue = 0, unpaidValue = 0;
+
+    filtered.forEach((d) => {
+      if (d.paymentStatus === "paid") {
+        paidCount++;
+        paidValue += d.total;
+      } else if (d.paymentStatus === "partial") {
+        partialCount++;
+        partialValue += d.total;
+      } else {
+        unpaidCount++;
+        unpaidValue += d.total;
+      }
+    });
+
+    return [
+      { name: t("common.status.paid", { defaultValue: "Paid" }), value: paidValue, count: paidCount, color: "#10b981" },
+      { name: t("common.status.partial", { defaultValue: "Partial" }), value: partialValue, count: partialCount, color: "#f59e0b" },
+      { name: t("common.status.unpaid", { defaultValue: "Unpaid" }), value: unpaidValue, count: unpaidCount, color: "#ef4444" },
+    ].filter(item => item.count > 0);
+  }, [filtered, t]);
+
+  const columns: ColumnDef<any>[] = useMemo(() => [
+    {
+      accessorKey: "reference",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.reference", { defaultValue: "Reference" })} />,
+      cell: ({ row }) => <span className="font-bold text-slate-800 dark:text-slate-200">{row.original.reference}</span>,
+    },
+    {
+      accessorKey: "dealDate",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.date", { defaultValue: "Date" })} />,
+      cell: ({ row }) => <span className="text-slate-500">{formatDate(row.original.dealDate)}</span>,
+    },
+    {
+      accessorKey: "customerName",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.customer", { defaultValue: "Customer" })} />,
+      cell: ({ row }) => <span className="text-slate-700 dark:text-slate-300 font-medium">{row.original.customerName}</span>,
+    },
+    {
+      accessorKey: "salesmanName",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.salesman", { defaultValue: "Salesman" })} />,
+      cell: ({ row }) => <span className="text-slate-500">{row.original.salesmanName}</span>,
+    },
+    {
+      accessorKey: "total",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.total_value", { defaultValue: "Total" })} />,
+      cell: ({ row }) => <span className="font-bold text-slate-900 dark:text-white">{formatEGP(row.original.total)}</span>,
+    },
+    {
+      accessorKey: "amountPaid",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.amount_paid", { defaultValue: "Paid" })} />,
+      cell: ({ row }) => <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatEGP(row.original.amountPaid)}</span>,
+    },
+    {
+      accessorKey: "paymentStatus",
+      header: ({ column }) => <DataTableColumnHeader column={column} title={t("deals.status", { defaultValue: "Status" })} />,
+      cell: ({ row }) => (
+        <Badge
+          variant={
+            row.original.paymentStatus === "paid"
+              ? "default"
+              : row.original.paymentStatus === "partial"
+              ? "secondary"
+              : "destructive"
+          }
+          className="text-[10px] px-2 py-0.5"
+        >
+          {t(`deals.payment_status.${row.original.paymentStatus}`)}
+        </Badge>
+      ),
+    },
+  ], [t]);
+
   const exportCsv = () => {
     if (filtered.length === 0) {
       toast.warning(t("reports.no_records_export"));
@@ -82,7 +197,7 @@ function ReportsPage() {
   const COLORS = ["#4f46e5", "#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899"];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
+    <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 font-sans">
       <PageHeader
         title={t("reports.title")}
         description={t("reports.desc")}
@@ -105,16 +220,58 @@ function ReportsPage() {
       />
 
       {/* Stats Cards Row */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard icon={FileSpreadsheet} label={t("reports.total_transactions")} value={String(filtered.length)} sub={t("reports.active_pipeline_count")} tone="primary" />
-        <StatCard icon={TrendingUp} label={t("reports.gross_billing")} value={formatEGP(total)} sub={t("reports.sum_invoices")} tone="primary" />
-        <StatCard icon={Percent} label={t("reports.clearance_rate")} value={`${collectionsRate.toFixed(1)}%`} sub={t("reports.collected_vs_gross")} tone="success" />
-      </div>
+      <motion.div 
+        variants={containerVariants} 
+        initial="hidden" 
+        animate="show" 
+        className="grid gap-4 sm:grid-cols-3"
+      >
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={FileSpreadsheet}
+            label={t("reports.total_transactions")}
+            value={String(filtered.length)}
+            numericValue={filtered.length}
+            formatter={(n) => formatNumber(Math.round(n))}
+            sub={t("reports.active_pipeline_count")}
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={TrendingUp}
+            label={t("reports.gross_billing")}
+            value={formatCompactEGP(total)}
+            numericValue={total}
+            formatter={(n) => formatCompactEGP(Math.round(n))}
+            sub={t("reports.sum_invoices")}
+            tone="primary"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <KpiCard
+            icon={Percent}
+            label={t("reports.clearance_rate")}
+            value={`${collectionsRate.toFixed(1)}%`}
+            numericValue={collectionsRate}
+            formatter={(n) => `${n.toFixed(1)}%`}
+            sub={t("reports.collected_vs_gross")}
+            tone="success"
+          />
+        </motion.div>
+      </motion.div>
 
       {loading ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
-          <Card className="h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-12">
+            <Card className="lg:col-span-8 h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
+            <Card className="lg:col-span-4 h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card className="h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
+            <Card className="h-80 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
+          </div>
+          <Card className="h-96 bg-slate-200 dark:bg-slate-800 animate-pulse rounded-xl" />
         </div>
       ) : filtered.length === 0 ? (
         <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
@@ -129,82 +286,150 @@ function ReportsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Top Salesmen Bar Chart */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold">{t("reports.top_sales_agents")}</CardTitle>
-              <CardDescription className="text-xs">{t("reports.sales_agents_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="h-72">
-              {bySalesman.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_sales_active")}</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={bySalesman}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
-                    <XAxis dataKey="name" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <YAxis stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), t("reports.revenue")]} />
-                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                      {bySalesman.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+        <div className="space-y-6">
+          {/* Complex Charts Row */}
+          <motion.div variants={itemVariants} initial="hidden" animate="show" className="grid gap-6 lg:grid-cols-12">
+            {/* Revenue & Collections Trend (2/3 width) */}
+            <GlowCard className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t("reports.revenue_collection_trend", { defaultValue: "Revenue & Collections Trend" })}
+                </GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-80">
+                {trendData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_sales_active")}</div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={trendData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="date" className="text-[10px] text-slate-400 font-medium" axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={(v) => `E£${(v / 1000).toFixed(0)}k`} className="text-[10px] text-slate-400 font-medium" axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} formatter={(v: number) => formatCompactEGP(v)} />
+                        <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
+                        <Area type="monotone" dataKey="sales" name={t("reports.sales_booked", { defaultValue: "Sales Booked" })} fill="#4f46e5" fillOpacity={0.1} stroke="#4f46e5" strokeWidth={2} />
+                        <Line type="monotone" dataKey="collections" name={t("reports.cash_collected", { defaultValue: "Cash Collected" })} stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
 
-          {/* Top Products Bar Chart */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-sm font-bold">{t("reports.top_products")}</CardTitle>
-              <CardDescription className="text-xs">{t("reports.products_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent className="h-72">
-              {byProduct.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_product_sales")}</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byProduct} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
-                    <XAxis type="number" stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={110} stroke="var(--color-muted-foreground)" fontSize={10} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatEGP(v), t("reports.gross_revenue")]} />
-                    <Bar dataKey="revenue" radius={[0, 4, 4, 0]}>
-                      {byProduct.map((_, index) => <Cell key={index} fill={COLORS[(index + 3) % COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+            {/* Payment status Donut Chart (1/3 width) */}
+            <GlowCard className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t("reports.payment_clearance", { defaultValue: "Payment Clearance" })}
+                </GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-80 flex flex-col justify-between">
+                <div className="h-[70%]">
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={paymentStatusData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {paymentStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v: number) => formatCompactEGP(v)} contentStyle={{ fontSize: '12px', borderRadius: '8px' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-4 text-xs font-semibold">
+                  {paymentStatusData.map((item, index) => (
+                    <div key={index} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="text-slate-600 dark:text-slate-400">{item.name} ({item.count})</span>
+                    </div>
+                  ))}
+                </div>
+              </GlowCardContent>
+            </GlowCard>
+          </motion.div>
+
+          {/* Existing top reps & products row */}
+          <motion.div variants={itemVariants} initial="hidden" animate="show" className="grid gap-6 lg:grid-cols-2">
+            {/* Sales by Rep */}
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("reports.top_sales_agents")}</GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-72">
+                {bySalesman.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_sales_active")}</div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={bySalesman} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" tickFormatter={(v) => `E£${(v / 1000).toFixed(0)}k`} className="text-[10px] text-slate-400 font-medium" axisLine={false} tickLine={false} />
+                        <YAxis dataKey="name" type="category" width={100} className="text-[10px] font-semibold text-slate-600 dark:text-slate-300" axisLine={false} tickLine={false} />
+                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} formatter={(v: number) => formatCompactEGP(v)} />
+                        <Bar dataKey="total" name={t("reports.revenue_booked", { defaultValue: "Revenue Booked" })} radius={[0, 4, 4, 0]} barSize={24}>
+                          {bySalesman.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
+
+            {/* Top Products */}
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">{t("reports.top_products")}</GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-4 h-72">
+                {byProduct.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400">{t("reports.no_product_sales")}</div>
+                ) : (
+                  <div dir="ltr" className="h-full w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={byProduct} margin={{ top: 20, right: 30, left: 20, bottom: 5 }} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" tickFormatter={(v) => `E£${(v / 1000).toFixed(0)}k`} className="text-[10px] text-slate-400 font-medium" axisLine={false} tickLine={false} />
+                        <YAxis dataKey="name" type="category" width={100} className="text-[10px] font-semibold text-slate-600 dark:text-slate-300" axisLine={false} tickLine={false} />
+                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }} formatter={(v: number) => formatCompactEGP(v)} />
+                        <Bar dataKey="revenue" name={t("reports.revenue_booked", { defaultValue: "Revenue Booked" })} radius={[0, 4, 4, 0]} barSize={24}>
+                          {byProduct.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[(i + 2) % COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </GlowCardContent>
+            </GlowCard>
+          </motion.div>
+
+          {/* New Transaction Ledger Table (Full width) */}
+          <motion.div variants={itemVariants} initial="hidden" animate="show">
+            <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
+              <GlowCardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/50">
+                <GlowCardTitle className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t("reports.transaction_ledger", { defaultValue: "Detailed Transaction Ledger" })}
+                </GlowCardTitle>
+              </GlowCardHeader>
+              <GlowCardContent className="p-0">
+                <DataTable columns={columns} data={filtered} />
+              </GlowCardContent>
+            </GlowCard>
+          </motion.div>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }
 
-function StatCard({
-  icon: Icon, label, value, sub, tone = "primary"
-}: { icon: any; label: string; value: string; sub?: string; tone?: "primary" | "success" }) {
-  const toneCls = {
-    primary: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
-    success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-  }[tone];
-
-  return (
-    <Card className="border-slate-200 dark:border-slate-800 shadow-sm hover:shadow transition">
-      <CardContent className="p-5 flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-          <div className="text-2xl font-black text-slate-850 dark:text-white tracking-tight">{value}</div>
-          {sub && <div className="text-[10px] text-slate-400 dark:text-slate-500">{sub}</div>}
-        </div>
-        <div className={cn("h-10 w-10 rounded-xl grid place-items-center border shadow-sm", toneCls)}>
-          <Icon className="h-4.5 w-4.5" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

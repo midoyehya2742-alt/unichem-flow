@@ -9,7 +9,7 @@ export function TableSkeleton({ columns = 5, rows = 5 }: { columns?: number; row
           <TableRow>
             {Array.from({ length: columns }).map((_, i) => (
               <TableHead key={i} className="h-10">
-                <Skeleton className="h-4 w-24 bg-slate-200 dark:bg-slate-800" />
+                <Skeleton className="h-4 w-24" />
               </TableHead>
             ))}
           </TableRow>
@@ -19,7 +19,7 @@ export function TableSkeleton({ columns = 5, rows = 5 }: { columns?: number; row
             <TableRow key={r}>
               {Array.from({ length: columns }).map((_, c) => (
                 <TableCell key={c} className="py-4">
-                  <Skeleton className="h-4 w-full max-w-[200px] bg-slate-100 dark:bg-slate-800" />
+                  <Skeleton className="h-4 w-full max-w-[200px]" />
                 </TableCell>
               ))}
             </TableRow>

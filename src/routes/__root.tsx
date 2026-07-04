@@ -4,6 +4,8 @@ import {
   HeadContent, Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import "@/lib/i18n";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -12,17 +14,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/lib/theme";
 
 function NotFoundComponent() {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
+        <h2 className="mt-4 text-xl font-semibold">{t("root.page_not_found", { defaultValue: "Page not found" })}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist.
+          {t("root.page_does_not_exist", { defaultValue: "The page you're looking for doesn't exist." })}
         </p>
         <div className="mt-6">
           <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            Go home
+            {t("root.go_home", { defaultValue: "Go home" })}
           </Link>
         </div>
       </div>
@@ -33,15 +36,16 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const { t } = useTranslation();
   useEffect(() => { reportLovableError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold">Something went wrong</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Try refreshing the page.</p>
+        <h1 className="text-xl font-semibold">{t("root.something_went_wrong", { defaultValue: "Something went wrong" })}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("root.try_refreshing", { defaultValue: "Try refreshing the page." })}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button onClick={() => { router.invalidate(); reset(); }} className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            Try again
+            {t("root.try_again", { defaultValue: "Try again" })}
           </button>
         </div>
       </div>
@@ -72,13 +76,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-import "@/lib/i18n";
+// Moved i18n import to top
 
 function RootShell({ children }: { children: ReactNode }) {
+  const { i18n } = useTranslation();
+  const dir = i18n.dir();
+  const lang = i18n.language || "en";
+
   return (
-    <html suppressHydrationWarning>
-      <head><HeadContent /></head>
-      <body>
+    <html lang={lang} dir={dir} suppressHydrationWarning>
+      <head suppressHydrationWarning><HeadContent /></head>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>

@@ -5,8 +5,12 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * UniChem ERP Design System
- * Brand: deep navy + warm gold accent. Professional, ERP-grade.
+ * UniChem ERP Design System v2
+ * Brand: deep navy + warm gold accent. Premium, enterprise-grade.
+ *
+ * Elevation scale: xs → 2xl (brand-tinted shadows)
+ * Animation system: fadeInUp, shimmer, pulse-glow, slideInRight
+ * Utility classes: glass-panel, glow-border, gradient-mesh, shimmer-skeleton
  */
 
 @theme inline {
@@ -51,6 +55,19 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* ── Elevation / Shadow Tokens ── */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.03);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.2);
+
+  /* ── Transition Tokens ── */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :root {
@@ -142,7 +159,44 @@
   --sidebar-accent-foreground: oklch(0.96 0.01 250);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.78 0.14 75);
+
+  /* Dark-mode shadows are more intense */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.15), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.25), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.45);
 }
+
+/* ── Keyframes ── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(79 70 229 / 0.3); }
+  50% { box-shadow: 0 0 0 6px rgb(79 70 229 / 0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Base Layer ── */
 
 @layer base {
   * { border-color: var(--color-border); }
@@ -151,14 +205,49 @@
     color: var(--color-foreground);
     font-family: var(--font-display);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     /* Respect device safe-area on mobile (iOS notches, Android nav bar). */
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Selection styling */
+  ::selection {
+    background-color: oklch(0.78 0.14 75 / 30%);
+    color: oklch(0.18 0.04 260);
+  }
+  .dark ::selection {
+    background-color: oklch(0.78 0.14 75 / 25%);
+    color: oklch(0.97 0.008 250);
+  }
+
+  /* Refined scrollbar (Webkit) */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.7 0.01 250 / 40%);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.55 0.01 250 / 60%); }
+  .dark ::-webkit-scrollbar-thumb { background: oklch(0.5 0.01 250 / 25%); }
+  .dark ::-webkit-scrollbar-thumb:hover { background: oklch(0.6 0.01 250 / 40%); }
+
   /* Larger tap targets on touch devices */
   @media (pointer: coarse) {
     button, [role="button"], a { min-height: 40px; }
   }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
+
+/* ── Utility Classes ── */
 
 @utility glass-card {
   background: color-mix(in oklab, var(--color-card) 85%, transparent);
@@ -166,13 +255,61 @@
   border: 1px solid var(--color-border);
 }
 
+@utility glass-panel {
+  background: color-mix(in oklab, var(--color-card) 75%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent);
+}
+
+@utility glow-border {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, oklch(0.78 0.14 75 / 20%), oklch(0.4 0.12 258 / 15%), transparent);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+  }
+  &:hover::after { opacity: 1; }
+}
+
+@utility gradient-mesh {
+  background-image:
+    radial-gradient(at 27% 37%, oklch(0.78 0.14 75 / 6%) 0px, transparent 50%),
+    radial-gradient(at 97% 21%, oklch(0.4 0.12 258 / 5%) 0px, transparent 50%),
+    radial-gradient(at 52% 99%, oklch(0.62 0.17 152 / 4%) 0px, transparent 50%);
+}
+
+@utility shimmer-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 25%,
+    color-mix(in oklab, var(--color-muted) 70%, var(--color-card)) 37%,
+    var(--color-muted) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@utility animate-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@utility animate-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @utility stat-tile {
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background: var(--color-card);
   padding: 1rem 1.25rem;
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
 }
+
 @utility stat-tile-hover {
   &:hover {
     box-shadow: 0 10px 30px -12px color-mix(in oklab, var(--color-primary) 25%, transparent);
