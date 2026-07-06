@@ -2,27 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { newId, nextRef, nowIso, useDb, type PendingAttachment } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { newId, uploadDealFiles } from "@/lib/store";
+import { useCustomers, useDeals, useUpdateDealFull } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
-} from "@/components/ui/dialog";
-import { Plus, Trash2, Paperclip, X, AlertTriangle, FileCheck } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { formatEGP } from "@/lib/format";
-import type { Customer, DealLine } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { DealForm, type DealFormData } from "@/components/deals/deal-form";
 
 export const Route = createFileRoute("/deals/$id_/edit")({
   head: () => ({ meta: [{ title: "Edit Deal — UniChem ERP" }] }),
@@ -32,17 +18,21 @@ export const Route = createFileRoute("/deals/$id_/edit")({
 function EditDeal() {
   const { id } = Route.useParams();
   const { user } = useAuth();
-  const db = useDb();
+  const { data: customersData } = useCustomers();
+  const { data: dealsData } = useDeals();
+  const updateDealFull = useUpdateDealFull();
   const navigate = useNavigate();
   const { t } = useTranslation("common");
 
-  const customers = db.listCustomers();
-  const products = db.listProducts();
-  const settings = db.getSettings();
-  
-  const deal = db.getDeal(id);
+  const customers = customersData ?? [];
+  const deal = dealsData?.find((d) => d.id === id);
 
-  // Guard: salesman can only edit approved deals
+  const [submitting, setSubmitting] = useState(false);
+
+  // Guard: salesman can only edit their own approved deals, and only after
+  // Finance/Admin approved an edit request — matches the check enforced by
+  // update_deal_with_inventory, so this catches the case early with a clear
+  // message instead of surfacing a raw RPC error.
   if (deal && user?.role === "salesman" && deal.dealStatus !== "approved") {
     return (
       <div className="p-8 text-center max-w-md mx-auto space-y-4">
@@ -57,589 +47,137 @@ function EditDeal() {
       </div>
     );
   }
+  if (deal && user?.role === "salesman" && deal.editRequest?.status !== "approved") {
+    return (
+      <div className="p-8 text-center max-w-md mx-auto space-y-4">
+        <div className="h-12 w-12 rounded-full bg-violet-100 dark:bg-violet-950/40 flex items-center justify-center mx-auto">
+          <span className="text-2xl">🔒</span>
+        </div>
+        <h2 className="text-base font-bold text-slate-800 dark:text-white">Edit Request Required</h2>
+        <p className="text-xs text-slate-500">
+          You can't edit a deal directly — go back and submit an <strong>edit request</strong> first. You'll be able to edit once Finance or an Admin approves it.
+        </p>
+        <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: `/deals/${id}` })}>
+          ← Back to Deal
+        </Button>
+      </div>
+    );
+  }
 
-  const [customerId, setCustomerId] = useState("");
-  const [dealDate, setDealDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [expectedPaymentDate, setExpectedPaymentDate] = useState("");
-  const [lines, setLines] = useState<DealLine[]>([
-    { productId: "", productName: "", quantity: 1, unitPrice: 0, discount: 0 },
-  ]);
-  const [discount, setDiscount] = useState(0);
-  const [tax, setTax] = useState(settings.defaultTax);
-  const [notes, setNotes] = useState("");
-  const [paymentType, setPaymentType] = useState<"immediate" | "installments">("immediate");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "cheques">("cash");
-  const [paymentInfo, setPaymentInfo] = useState("");
-  const [immediateAmount, setImmediateAmount] = useState<number>(0);
-  const [cheques, setCheques] = useState<{ id: string; amount: number; dueDate: string }[]>([]);
-  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
-  const [overrideStock, setOverrideStock] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [amountPaid, setAmountPaid] = useState(0);
+  const DRAFT_KEY = `unichem-edit-deal-${id}`;
 
-  const [initialized, setInitialized] = useState(false);
-
-  useEffect(() => {
-    if (deal && !initialized) {
-      setCustomerId(deal.customerId || "");
-      setDealDate(deal.dealDate ? new Date(deal.dealDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
-      setExpectedPaymentDate(deal.expectedPaymentDate ? new Date(deal.expectedPaymentDate).toISOString().slice(0, 10) : "");
-      setLines(deal.lines?.length ? deal.lines : [{ productId: "", productName: "", quantity: 1, unitPrice: 0, discount: 0 }]);
-      setDiscount(deal.discount || 0);
-      setTax(deal.tax ?? settings.defaultTax);
-      setNotes(deal.notes || "");
-      setPaymentType(deal.paymentType || "immediate");
-      setPaymentMethod(deal.paymentMethod || "cash");
-      setPaymentInfo(deal.paymentInfo || "");
-      setImmediateAmount(deal.immediateAmount || 0);
-      setCheques(deal.cheques || []);
-      setAmountPaid(deal.amountPaid || 0);
-      setInitialized(true);
-    }
-  }, [deal, initialized, settings.defaultTax]);
-
-  const saveDraft = () => {};
-  const clearDraft = () => {};
-
-  const totals = useMemo(() => {
-    const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
-    const afterDisc = subtotal * (1 - (discount || 0) / 100);
-    const total = afterDisc * (1 + (tax || 0) / 100);
-    return { subtotal, total };
-  }, [lines, discount, tax]);
-
-  const stockWarnings = useMemo(() => lines.flatMap((line) => {
-    if (!line.productId || line.quantity <= 0) return [];
-    const p = products.find((x) => x.id === line.productId);
-    if (!p || p.stockQuantity >= line.quantity) return [];
-    return [`${p.name}: requested ${line.quantity} ${p.unit}, available ${p.stockQuantity} ${p.unit}`];
-  }), [lines, products]);
-
-  const updateLine = (i: number, patch: Partial<DealLine>) => {
-    setLines((prev) => {
-      const next = prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l));
-      setTimeout(saveDraft, 0);
-      return next;
-    });
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
   };
 
-  const removeLine = (i: number) => {
-    setLines((prev) => {
-      const next = prev.filter((_, idx) => idx !== i);
-      setTimeout(saveDraft, 0);
-      return next;
-    });
+  const handleCancel = () => {
+    clearDraft();
+    navigate({ to: `/deals/${id}` });
   };
 
-  const addLine = () => {
-    setLines((prev) => {
-      const next = [...prev, { productId: "", productName: "", quantity: 1, unitPrice: 0, discount: 0 }];
-      setTimeout(saveDraft, 0);
-      return next;
-    });
-  };
-
-  const pickProduct = (i: number, pid: string) => {
-    const p = products.find((x) => x.id === pid);
-    if (!p) return;
-    updateLine(i, { productId: p.id, productName: p.name, unitPrice: p.defaultPrice });
-  };
-
-  const addCheque = () => {
-    setCheques((prev) => [...prev, { id: newId(), amount: 0, dueDate: "" }]);
-  };
-
-  const removeCheque = (id: string) => {
-    setCheques((prev) => prev.filter((c) => c.id !== id));
-  };
-
-  const updateCheque = (id: string, patch: any) => {
-    setCheques((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  };
-
-  const submit = async () => {
+  const handleSubmit = async (data: DealFormData, overrideStock: boolean) => {
     if (!user || submitting || !deal) return;
-    if (!customerId) return toast.error("Please select a customer");
-    if (!lines.length || lines.some((l) => !l.productId || l.quantity <= 0)) {
-      return toast.error("Please add at least one line item with valid product and quantity");
-    }
-    if (stockWarnings.length > 0 && !(user.role === "admin" && overrideStock)) {
-      return toast.error("Cannot submit deal: Insufficient inventory.");
-    }
-    const customer = customers.find((c) => c.id === customerId)!;
+    
+    const customer = customers.find((c) => c.id === data.customerId)!;
     setSubmitting(true);
+    
     try {
-      let finalAmountPaid = amountPaid;
+      let finalAmountPaid = data.amountPaid || deal.amountPaid || 0;
       let finalPaymentStatus: "paid" | "partial" | "unpaid" = deal.paymentStatus;
       
-      // Basic recalculation if total changed
-      if (totals.total > 0 && finalAmountPaid >= totals.total) {
-        finalPaymentStatus = "paid";
-      } else if (finalAmountPaid > 0) {
-        finalPaymentStatus = "partial";
+      const subtotal = data.lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
+      const afterDisc = subtotal * (1 - (data.discount || 0) / 100);
+      const totalsTotal = afterDisc * (1 + (data.tax || 0) / 100);
+
+      if (data.paymentType === "immediate") {
+         finalAmountPaid = totalsTotal;
+         finalPaymentStatus = "paid";
       } else {
-        finalPaymentStatus = "unpaid";
+         finalAmountPaid = data.immediateAmount || deal.immediateAmount || 0;
+         if (finalAmountPaid >= totalsTotal && totalsTotal > 0) {
+            finalPaymentStatus = "paid";
+         } else if (finalAmountPaid > 0) {
+            finalPaymentStatus = "partial";
+         } else {
+            finalPaymentStatus = "unpaid";
+         }
       }
 
-      const updatedDeal = {
+      let attachments = deal.attachments;
+      if (data.attachments && data.attachments.length > 0) {
+        const pending = data.attachments.map(f => ({
+          id: newId(),
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          file: f
+        }));
+        const uploaded = await uploadDealFiles(deal.id, pending);
+        attachments = [...deal.attachments, ...uploaded];
+      }
+
+      await updateDealFull.mutateAsync({ newDeal: {
         ...deal,
         customerId: customer.id,
         customerName: customer.name,
-        lines,
-        subtotal: totals.subtotal,
-        discount,
-        tax,
-        total: totals.total,
-        notes,
-        paymentType,
-        paymentMethod,
-        paymentInfo,
-        immediateAmount: paymentType === "installments" ? immediateAmount : undefined,
-        cheques: paymentType === "installments" && paymentMethod === "cheques" ? cheques : undefined,
-        dealDate: new Date(dealDate).toISOString(),
-        expectedPaymentDate: expectedPaymentDate ? new Date(expectedPaymentDate).toISOString() : undefined,
+        lines: data.lines,
+        subtotal,
+        discount: data.discount,
+        tax: data.tax,
+        total: totalsTotal,
         paymentStatus: finalPaymentStatus,
-      };
+        amountPaid: finalAmountPaid,
+        notes: data.notes,
+        attachments,
+        paymentType: data.paymentType,
+        paymentMethod: data.paymentMethod,
+        paymentInfo: data.paymentInfo,
+        immediateAmount: data.paymentType === "installments" ? data.immediateAmount : undefined,
+        cheques: data.paymentType === "installments" && data.paymentMethod === "cheques" ? data.cheques : undefined,
+        dealDate: new Date(data.dealDate).toISOString(),
+        expectedPaymentDate: data.expectedPaymentDate ? new Date(data.expectedPaymentDate).toISOString() : undefined,
+      }, overrideStock: user.role === "admin" && overrideStock });
 
-      await db.updateDealFull(deal, updatedDeal, overrideStock);
-
+      clearDraft();
       toast.success(`Deal ${deal.reference} updated successfully!`);
-      navigate({ to: `/deals/${deal.id}` });
-    } catch (error: any) {
-      toast.error(error.message || "Error updating transaction record");
+      navigate({ to: `/deals/${id}` });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Error updating transaction record");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!deal) return <div className="p-8 text-center">Loading deal...</div>;
+  if (!deal) return <div className="p-8 text-center text-slate-500">Loading deal...</div>;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 font-sans">
       <PageHeader
         title="Edit Deal"
-        description="Modify an existing deal record"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => navigate({ to: `/deals/${id}` })} className="h-9 text-xs">
-            {t("common.actions.cancel")}
-          </Button>
-        }
+        description={`Modifying deal ${deal.reference}`}
       />
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Form Details Area */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Customer Selection Card */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold">{t("deals.step1_title")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-500">{t("deals.customer_name")}</Label>
-                <div className="flex gap-2">
-                  <Select value={customerId} onValueChange={(val) => { setCustomerId(val); setTimeout(saveDraft, 0); }}>
-                    <SelectTrigger className="flex-1 h-10 text-xs">
-                      <SelectValue placeholder={t("deals.search_customer")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} {c.company ? `(${c.company})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <NewCustomerDialog
-                    open={newCustomerOpen}
-                    setOpen={setNewCustomerOpen}
-                    onCreated={(c) => { setCustomerId(c.id); setNewCustomerOpen(false); saveDraft(); }}
-                  />
-                </div>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500">{t("deals.deal_date")}</Label>
-                  <Input type="date" value={dealDate} onChange={(e) => { setDealDate(e.target.value); setTimeout(saveDraft, 0); }} className="h-10 text-xs" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500">{t("deals.expected_payment_date")}</Label>
-                  <Input type="date" value={expectedPaymentDate} onChange={(e) => { setExpectedPaymentDate(e.target.value); setTimeout(saveDraft, 0); }} className="h-10 text-xs" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Line Items Card */}
-          <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-bold">{t("deals.step2_title")}</CardTitle>
-              <Button size="sm" variant="outline" onClick={addLine} className="h-8 text-xs">
-                <Plus className="h-3.5 w-3.5 mr-1 rtl:ml-1" /> {t("deals.add_product_line")}
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {lines.map((line, i) => {
-                const subtotal = line.quantity * line.unitPrice * (1 - (line.discount || 0) / 100);
-                const product = products.find((p) => p.id === line.productId);
-                const low = Boolean(product && line.quantity > product.stockQuantity);
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "grid grid-cols-12 gap-3 items-end border rounded-xl p-4 transition-all",
-                      low ? "border-amber-500/35 bg-amber-500/5 dark:bg-amber-500/10" : "border-slate-200 dark:border-slate-800"
-                    )}
-                  >
-                    <div className="col-span-12 lg:col-span-5 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.chemical_sku")}</Label>
-                      <Select value={line.productId} onValueChange={(v) => pickProduct(i, v)}>
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder={t("deals.select_inventory")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} ({p.sku}) - Avail: {p.stockQuantity} {p.unit}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="col-span-6 sm:col-span-4 lg:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.qty")}</Label>
-                      <Input
-                        type="number"
-                        min={0.01}
-                        step="any"
-                        value={line.quantity === 0 ? "" : line.quantity}
-                        onChange={(e) => updateLine(i, { quantity: parseFloat(e.target.value) || 0 })}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div className="col-span-6 sm:col-span-4 lg:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.unit_price")}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={line.unitPrice === 0 ? "" : line.unitPrice}
-                        onChange={(e) => updateLine(i, { unitPrice: parseFloat(e.target.value) || 0 })}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div className="col-span-9 sm:col-span-3 lg:col-span-2 space-y-1">
-                      <Label className="text-[10px] font-semibold text-slate-500">{t("deals.disc_pct")}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={line.discount === 0 ? "" : line.discount}
-                        onChange={(e) => updateLine(i, { discount: parseFloat(e.target.value) || 0 })}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-1 lg:col-span-1 flex items-center justify-end">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeLine(i)}
-                        disabled={lines.length === 1}
-                        className="h-9 w-9 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 disabled:opacity-40"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="col-span-12 flex justify-between text-[10px] text-slate-400 mt-2 border-t border-slate-100 dark:border-slate-800/60 pt-2">
-                      <span>
-                        {product && (
-                          <span className={cn(low ? "font-bold text-amber-600 dark:text-amber-400" : "")}>
-                            {t("deals.warehouse_stock")} {product.stockQuantity} {product.unit}
-                          </span>
-                        )}
-                      </span>
-                      <span>
-                        {t("deals.line_total")} <span className="font-bold text-slate-850 dark:text-white">{formatEGP(subtotal)}</span>
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {stockWarnings.length > 0 && (
-                <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-800 dark:text-amber-300">
-                  <AlertTriangle className="h-4.5 w-4.5" />
-                  <AlertTitle className="text-xs font-bold">{t("deals.insufficient_stock")}</AlertTitle>
-                  <AlertDescription className="text-xs space-y-2 mt-1">
-                    <ul className="list-disc pl-5 rtl:pr-5 rtl:pl-0 space-y-1">
-                      {stockWarnings.map((w) => <li key={w}>{w}</li>)}
-                    </ul>
-                    {user?.role === "admin" && (
-                      <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                        <Checkbox checked={overrideStock} onCheckedChange={(checked) => setOverrideStock(Boolean(checked))} />
-                        <span className="font-semibold text-[11px]">{t("deals.authorize_override")}</span>
-                      </label>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Payment Method & Notes */}
-          <div className="grid sm:grid-cols-2 gap-5">
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">3. Payment Method</CardTitle>
-                <CardDescription className="text-[10px]">Select payment terms and provide details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500">Payment Type</Label>
-                  <Select value={paymentType} onValueChange={(val: any) => { setPaymentType(val); setTimeout(saveDraft, 0); }}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="immediate">Immediate Payment</SelectItem>
-                      <SelectItem value="installments">Installments</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500">Payment Method</Label>
-                  <Select value={paymentMethod} onValueChange={(val: any) => { setPaymentMethod(val); setTimeout(saveDraft, 0); }}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="cheques">Cheques</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500">Payment Details (e.g. Bank, Customer Info)</Label>
-                  <Textarea
-                    rows={2}
-                    placeholder="Enter payment details..."
-                    value={paymentInfo}
-                    onChange={(e) => { setPaymentInfo(e.target.value); setTimeout(saveDraft, 0); }}
-                    className="text-xs placeholder-slate-400 focus-visible:ring-indigo-500 resize-none"
-                  />
-                </div>
-
-                {paymentType === "installments" && (
-                  <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-500">Immediate Down Payment</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={immediateAmount === 0 ? "" : immediateAmount}
-                        onChange={(e) => { setImmediateAmount(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-
-                    {paymentMethod === "cheques" && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold text-slate-500">Post-dated Cheques</Label>
-                          <Button size="sm" variant="outline" onClick={addCheque} className="h-7 text-[10px]">
-                            <Plus className="h-3 w-3 mr-1" /> Add Cheque
-                          </Button>
-                        </div>
-                        {cheques.length === 0 ? (
-                          <div className="text-center text-[10px] text-slate-400">No cheques added.</div>
-                        ) : (
-                          <div className="space-y-2">
-                            {cheques.map((c) => (
-                              <div key={c.id} className="flex items-center gap-2">
-                                <Input
-                                  type="number"
-                                  placeholder="Amount"
-                                  value={c.amount === 0 ? "" : c.amount}
-                                  onChange={(e) => updateCheque(c.id, { amount: parseFloat(e.target.value) || 0 })}
-                                  className="h-8 text-xs w-24"
-                                />
-                                <Input
-                                  type="date"
-                                  value={c.dueDate}
-                                  onChange={(e) => updateCheque(c.id, { dueDate: e.target.value })}
-                                  className="h-8 text-xs flex-1"
-                                />
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => removeCheque(c.id)}
-                                  className="h-8 w-8 text-rose-500"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex justify-between text-[10px] text-slate-500">
-                          <span>Installment Sum:</span>
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {formatEGP(immediateAmount + cheques.reduce((s, c) => s + c.amount, 0))}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold">{t("deals.step4_title")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  rows={4}
-                  placeholder={t("deals.remarks_placeholder")}
-                  value={notes}
-                  onChange={(e) => { setNotes(e.target.value); setTimeout(saveDraft, 0); }}
-                  className="text-xs placeholder-slate-400 focus-visible:ring-indigo-500 resize-none"
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Sticky Summary Pane */}
-        <div className="space-y-4">
-          <Card className="sticky top-20 border-slate-200 dark:border-slate-800 shadow-lg">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
-              <CardTitle className="text-sm font-bold">{t("deals.pipeline_value")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                <div className="flex justify-between">
-                  <span>{t("deals.gross_subtotal")}</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{formatEGP(totals.subtotal)}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-semibold text-slate-500">{t("deals.overall_disc_pct")}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={discount === 0 ? "" : discount}
-                      onChange={(e) => { setDiscount(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-semibold text-slate-500">{t("deals.global_tax_pct")}</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={tax === 0 ? "" : tax}
-                      onChange={(e) => { setTax(parseFloat(e.target.value) || 0); setTimeout(saveDraft, 0); }}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-3">
-                <div className="flex justify-between items-end">
-                  <span className="text-xs text-slate-500">{t("deals.cleared_net")}</span>
-                  <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
-                    {formatEGP(totals.total)}
-                  </span>
-                </div>
-                
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-semibold text-slate-500">Amount Paid</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={amountPaid === 0 ? "" : amountPaid}
-                    onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                    className="h-8 text-xs font-semibold"
-                  />
-                </div>
-
-                <div className="flex justify-between items-end pt-1 border-t border-slate-100 dark:border-slate-800/60">
-                  <span className="text-[10px] font-semibold text-slate-500">Remaining Balance</span>
-                  <span className={cn(
-                    "text-sm font-bold tracking-tight",
-                    totals.total - amountPaid > 0 ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
-                  )}>
-                    {formatEGP(Math.max(0, totals.total - amountPaid))}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <Button className="w-full shadow-lg shadow-indigo-600/10" onClick={submit} disabled={submitting}>
-                  <FileCheck className="h-4 w-4 me-2" /> Save Changes
-                </Button>
-                <Button variant="outline" className="w-full text-xs" onClick={() => navigate({ to: `/deals/${id}` })}>
-                  {t("deals.discard_entry")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <DealForm
+        draftKey={DRAFT_KEY}
+        mode="edit"
+        initialData={{
+          customerId: deal.customerId,
+          dealDate: deal.dealDate ? new Date(deal.dealDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          expectedPaymentDate: deal.expectedPaymentDate ? new Date(deal.expectedPaymentDate).toISOString().slice(0, 10) : "",
+          lines: deal.lines,
+          discount: deal.discount,
+          tax: deal.tax,
+          notes: deal.notes,
+          paymentType: deal.paymentType,
+          paymentMethod: deal.paymentMethod,
+          paymentInfo: deal.paymentInfo,
+          immediateAmount: deal.immediateAmount,
+          cheques: deal.cheques,
+          amountPaid: deal.amountPaid,
+        }}
+        isSubmitting={submitting}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+      />
     </div>
-  );
-}
-
-function NewCustomerDialog({
-  open, setOpen, onCreated,
-}: { open: boolean; setOpen: (v: boolean) => void; onCreated: (c: Customer) => void }) {
-  const db = useDb();
-  const { t } = useTranslation("common");
-  const [form, setForm] = useState({ name: "", company: "", phone: "", email: "", address: "" });
-
-  const create = () => {
-    if (!form.name.trim()) return toast.error("Customer name is required");
-    const c: Customer = { id: newId(), ...form, archived: false, createdAt: nowIso() };
-    db.upsertCustomer(c);
-    toast.success("Customer directories updated");
-    setForm({ name: "", company: "", phone: "", email: "", address: "" });
-    onCreated(c);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" type="button" className="h-10 px-3">
-          <Plus className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md font-sans dark:bg-slate-900">
-        <DialogHeader>
-          <DialogTitle className="text-sm font-bold">{t("deals.add_customer_dir")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2 text-xs">
-          <div className="space-y-1"><Label className="text-slate-500">{t("deals.customer_name")}</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-9" /></div>
-          <div className="space-y-1"><Label className="text-slate-500">{t("deals.company_name")}</Label><Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} className="h-9" /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label className="text-slate-500">{t("deals.phone")}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-9" /></div>
-            <div className="space-y-1"><Label className="text-slate-500">{t("deals.email")}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-9" /></div>
-          </div>
-          <div className="space-y-1"><Label className="text-slate-500">{t("deals.billing_address")}</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="h-9" /></div>
-        </div>
-        <DialogFooter className="mt-4 gap-2">
-          <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t("common.actions.cancel")}</Button>
-          <Button size="sm" onClick={create}>{t("deals.save_record")}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

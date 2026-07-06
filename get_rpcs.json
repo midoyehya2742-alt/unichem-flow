@@ -1,1 +1,0 @@
-{"query":"SELECT proname, pg_get_functiondef(oid) FROM pg_proc WHERE proname LIKE '%app_user%';"}

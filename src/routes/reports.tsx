@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { useDb } from "@/lib/store";
+import { useDeals } from "@/hooks/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Download, TrendingUp, BarChart3, Wallet, FileSpreadsheet, Percent, AreaChart as ChartIcon } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { formatEGP, formatDate, formatNumber, formatCompactEGP } from "@/lib/format";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -33,11 +33,10 @@ export const Route = createFileRoute("/reports")({
 type Range = "7d" | "30d" | "90d" | "ytd";
 
 function ReportsPage() {
-  const db = useDb();
-  const deals = db.listDeals();
+  const { data: dealsData, isLoading: loading } = useDeals();
+  const deals = dealsData ?? [];
   const { t } = useTranslation("common");
   const [range, setRange] = useState<Range>("30d");
-  const [loading, setLoading] = useState(true);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -48,11 +47,6 @@ function ReportsPage() {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(t);
-  }, []);
 
   const filtered = useMemo(() => {
     const now = new Date();

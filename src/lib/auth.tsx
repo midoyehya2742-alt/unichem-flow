@@ -91,8 +91,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    // Client-side rate limiting (SEC-04)
+    const rateLimitKey = `login_attempts_${email}`;
+    const attemptsStr = localStorage.getItem(rateLimitKey);
+    const attempts = attemptsStr ? JSON.parse(attemptsStr) : { count: 0, lockedUntil: 0 };
+    
+    if (Date.now() < attempts.lockedUntil) {
+      const waitMinutes = Math.ceil((attempts.lockedUntil - Date.now()) / 60000);
+      return { ok: false, error: `Too many attempts. Please try again in ${waitMinutes} minutes.` };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { ok: false, error: error.message };
+    
+    if (error) {
+      const newCount = attempts.count + 1;
+      const newLockedUntil = newCount >= 5 ? Date.now() + 15 * 60000 : 0; // Lock for 15 mins after 5 attempts
+      localStorage.setItem(rateLimitKey, JSON.stringify({ count: newCount, lockedUntil: newLockedUntil }));
+      return { ok: false, error: error.message };
+    }
+    
+    // Clear on success
+    localStorage.removeItem(rateLimitKey);
     return { ok: true };
   };
 

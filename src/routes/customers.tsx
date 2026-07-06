@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { newId, nowIso, useDb } from "@/lib/store";
+import { newId, nowIso } from "@/lib/store";
+import { useCustomers, useDeals, useUpsertCustomer } from "@/hooks/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
 import { Plus, Archive, Pencil, Search, FolderOpen } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Customer } from "@/lib/types";
 import { useTranslation } from "react-i18next";
@@ -31,23 +32,18 @@ export const Route = createFileRoute("/customers")({
 });
 
 function CustomersPage() {
-  const db = useDb();
+  const { data: customers, isLoading: loading } = useCustomers();
+  const { data: deals } = useDeals();
   const { t } = useTranslation("common");
-  const [loading, setLoading] = useState(true);
-  const list = db.listCustomers();
+  const list = useMemo(() => (customers ?? []).filter(c => !c.archived), [customers]);
   const [q, setQ] = useState("");
-
-  useEffect(() => {
-    const tId = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(tId);
-  }, []);
 
   const filtered = useMemo(
     () => list.filter((c) => !q || c.name.toLowerCase().includes(q.toLowerCase()) || (c.company ?? "").toLowerCase().includes(q.toLowerCase())),
     [list, q],
   );
 
-  const allDeals = db.listDeals();
+  const allDeals = deals ?? [];
   const now = new Date();
   
   // KPI Calculations
@@ -266,13 +262,13 @@ function CustomersPage() {
 function CustomerDialog({
   open, setOpen, editing, setEditing,
 }: { open: boolean; setOpen: (v: boolean) => void; editing: Customer | null; setEditing: (c: Customer | null) => void }) {
-  const db = useDb();
+  const upsertCustomer = useUpsertCustomer();
   const { t } = useTranslation("common");
   if (!editing) return null;
   const update = (patch: Partial<Customer>) => setEditing({ ...editing, ...patch });
   const save = () => {
     if (!editing.name.trim()) return toast.error(t("customers.name_required", { defaultValue: "Name is required" }));
-    db.upsertCustomer(editing);
+    upsertCustomer.mutate(editing);
     toast.success(t("customers.updated"));
     setOpen(false);
   };

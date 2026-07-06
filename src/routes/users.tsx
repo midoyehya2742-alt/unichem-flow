@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { newId, nowIso, useDb } from "@/lib/store";
+import { newId, nowIso } from "@/lib/store";
+import { useUsers, useUpsertUser, useDeleteUser } from "@/hooks/queries";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
@@ -31,10 +32,11 @@ export const Route = createFileRoute("/users")({
 });
 
 function UsersPage() {
-  const db = useDb();
+  const { data: users, isLoading: loading } = useUsers();
+  const upsertUser = useUpsertUser();
+  const deleteUser = useDeleteUser();
   const { t } = useTranslation("common");
-  const [loading, setLoading] = useState(true);
-  const list = db.listUsers();
+  const list = users ?? [];
   const [editing, setEditing] = useState<User | null>(null);
   const [password, setPassword] = useState("");
   const [open, setOpen] = useState(false);
@@ -42,11 +44,6 @@ function UsersPage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -72,15 +69,15 @@ function UsersPage() {
   const save = async () => {
     if (!editing) return;
     if (!editing.email.trim() || !editing.name.trim()) return toast.error(t("users.err_name_email"));
-    const creation = db.upsertUser(editing, password || undefined);
+    const creation = upsertUser.mutateAsync({ user: editing, password: password || undefined });
     if (creation) {
       setSaving(true);
       try {
         await creation;
         toast.success(t("users.created"));
         setOpen(false);
-      } catch (err: any) {
-        toast.error(err.message || t("users.create_failed"));
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : t("users.create_failed"));
       } finally {
         setSaving(false);
       }
@@ -255,7 +252,7 @@ function UsersPage() {
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>{t("common.actions.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => { db.deleteUser(u.id); toast.success(t("users.deleted")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
+                                <AlertDialogAction onClick={() => { deleteUser.mutate(u.id); toast.success(t("users.deleted")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
                                   {t("common.actions.delete", { defaultValue: "Delete" })}
                                 </AlertDialogAction>
                               </AlertDialogFooter>

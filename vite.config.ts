@@ -16,5 +16,18 @@ export default defineConfig({
   vite: {
     plugins: [mcpPlugin()],
   },
+  nitro: {
+    routeRules: {
+      "/**": {
+        headers: {
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "Content-Security-Policy": "default-src 'self' https://*.supabase.co; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co"
+        }
+      }
+    }
+  }
 });
 

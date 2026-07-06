@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { useDb } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle, GlowCardDescription } from "@/components/ui/glow-card";
 import { formatEGP, formatCompactEGP, formatNumber } from "@/lib/format";
@@ -25,6 +24,8 @@ import { motion } from "framer-motion";
 import { PageTransition } from "@/components/ui/page-transition";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Skeleton } from "@/components/ui/skeleton";
+
+import { useDashboardStats, useDeals } from "@/hooks/queries";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — UniChem ERP" }] }),
@@ -54,100 +55,73 @@ function getGreetingKey(): string {
 
 function Dashboard() {
   const { user } = useAuth();
-  const db = useDb();
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("common");
 
-  // Simulate premium skeleton loader
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
+  const { data: deals, isLoading: dealsLoading, error: dealsError } = useDeals();
 
-  const deals = db.listDeals();
-  const products = db.listProducts();
-  const customers = db.listCustomers();
-  const movements = db.listInventoryMovements();
+  // Hooks must run unconditionally (before any early return below), so these
+  // are derived here from the possibly-still-loading query data rather than
+  // after the loading/error guards.
+  const daysForSpark = stats?.last_7_days || [];
+  const dealsForSpark = deals || [];
+  const revenueSparkData = useMemo(() => {
+    return daysForSpark.map((_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - (6 - i));
+      const key = d.toISOString().slice(0, 10);
+      return dealsForSpark.filter(x => x.dealDate.slice(0, 10) === key).reduce((s, x) => s + x.total, 0);
+    });
+  }, [dealsForSpark, daysForSpark]);
+  const profitSparkData = useMemo(() => revenueSparkData.map(r => r * 0.25), [revenueSparkData]);
 
-  const myDeals = deals;
+  if (statsLoading || dealsLoading) return <div className="p-8 text-center text-slate-500">Loading dashboard...</div>;
+  if (statsError || dealsError || !stats) return <div className="p-8 text-center text-red-500">Error loading dashboard</div>;
 
-  const total = myDeals.reduce((s, d) => s + d.total, 0);
-  const paid = myDeals.reduce((s, d) => s + d.amountPaid, 0);
-  const outstanding = total - paid;
-  const pending = myDeals.filter((d) => d.paymentStatus !== "paid").length;
+  // RLS already scopes deals to the caller's own deals for salesmen and
+  // to all deals for finance/admin, so this is "my" visible deals.
+  const myDeals = deals!;
+
+  const total = stats.total;
+  const paid = stats.paid;
+  const outstanding = stats.outstanding;
+  const pending = stats.pending_deals;
   
   // Low Stock Alert calculations
-  const lowStockProducts = products.filter((p) => p.stockQuantity <= p.minimumStockLevel);
+  const lowStockProducts = stats.low_stock_count;
 
   // Pending Edit Requests calculations (for finance/admin)
-  const pendingEditRequests = deals.filter(d => d.editRequest?.status === "pending");
+  const pendingEditRequests = stats.pending_edits || [];
 
   // Status mapping
   const byStatus = [
-    { name: t("common.status.paid", { defaultValue: "Paid" }), value: myDeals.filter((d) => d.paymentStatus === "paid").length },
-    { name: t("common.status.partial", { defaultValue: "Partial" }), value: myDeals.filter((d) => d.paymentStatus === "partial").length },
-    { name: t("common.status.unpaid", { defaultValue: "Unpaid" }), value: myDeals.filter((d) => d.paymentStatus === "unpaid").length },
+    { name: t("common.status.paid", { defaultValue: "Paid" }), value: stats.paid_count },
+    { name: t("common.status.partial", { defaultValue: "Partial" }), value: stats.partial_count },
+    { name: t("common.status.unpaid", { defaultValue: "Unpaid" }), value: stats.unpaid_count },
   ].filter(s => s.value > 0);
 
   const STATUS_COLORS = ["#10b981", "#f59e0b", "#ef4444"];
 
   // last 7 days chart data
-  const days = Array.from({ length: 7 }).map((_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    const sum = myDeals.filter((x) => x.dealDate.slice(0, 10) === key).reduce((s, x) => s + x.total, 0);
-    return { day: d.toLocaleDateString(i18n.language === "ar" ? "ar" : "en", { weekday: "short" }), total: sum };
+  const days = stats.last_7_days || [];
+  const chartDays = days.map((d: any, i: number) => {
+    const date = new Date(d.day);
+    return { day: date.toLocaleDateString(i18n.language === "ar" ? "ar" : "en", { weekday: "short" }), total: d.total };
   });
 
   // Sparkline data derived from the 7-day timeline
-  const pipelineSparkData = useMemo(() => days.map(d => d.total), [days]);
-  const collectedSparkData = useMemo(() => {
-    return days.map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
-      return myDeals.filter(x => x.dealDate.slice(0, 10) === key).reduce((s, x) => s + x.amountPaid, 0);
-    });
-  }, [myDeals]);
-  const dealsCountSparkData = useMemo(() => {
-    return days.map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
-      return myDeals.filter(x => x.dealDate.slice(0, 10) === key).length;
-    });
-  }, [myDeals]);
-  const outstandingSparkData = useMemo(() => {
-    return days.map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
-      const dayDeals = myDeals.filter(x => x.dealDate.slice(0, 10) === key);
-      const dayTotal = dayDeals.reduce((s, x) => s + x.total, 0);
-      const dayPaid = dayDeals.reduce((s, x) => s + x.amountPaid, 0);
-      return dayTotal - dayPaid;
-    });
-  }, [myDeals]);
+  const pipelineSparkData = days.map((d: any) => d.total);
+  const collectedSparkData = days.map((d: any) => d.amount_paid);
+  const dealsCountSparkData = days.map((d: any) => d.count);
+  const outstandingSparkData = days.map((d: any) => d.outstanding);
 
   // Collection rate as trend %
   const collectionRate = total > 0 ? (paid / total) * 100 : 0;
 
   // --- Real Data Wiring for Dashboard Widgets ---
   
-  // 5. Advanced KPIs (Growth & Profit)
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-  const revenueMTD = myDeals
-    .filter(d => new Date(d.dealDate) >= currentMonthStart)
-    .reduce((s, d) => s + d.total, 0);
-
-  const revenueLastMonth = myDeals
-    .filter(d => {
-      const date = new Date(d.dealDate);
-      return date >= previousMonthStart && date <= previousMonthEnd;
-    })
-    .reduce((s, d) => s + d.total, 0);
+  const revenueMTD = stats.revenue_mtd;
+  const revenueLastMonth = stats.revenue_last_month;
 
   const growthAmount = revenueMTD - revenueLastMonth;
   const growthTrend = revenueLastMonth > 0 ? (growthAmount / revenueLastMonth) * 100 : (revenueMTD > 0 ? 100 : 0);
@@ -171,18 +145,6 @@ function Dashboard() {
   const collectedTrend = calculateSparkTrend(collectedSparkData);
   const outstandingTrend = calculateSparkTrend(outstandingSparkData);
 
-  // Generate 7-day sparkline for Growth/Profit (based on revenue per day)
-  const revenueSparkData = useMemo(() => {
-    return days.map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (6 - i));
-      const key = d.toISOString().slice(0, 10);
-      return myDeals.filter(x => x.dealDate.slice(0, 10) === key).reduce((s, x) => s + x.total, 0);
-    });
-  }, [myDeals, days]);
-  
-  const profitSparkData = useMemo(() => revenueSparkData.map(r => r * 0.25), [revenueSparkData]);
-
-  
   // 1. Sales Funnel Data (using payment status as pipeline stages)
   const funnelLeads = myDeals.length;
   const funnelNegotiation = myDeals.filter(d => d.paymentStatus === "unpaid" || d.paymentStatus === "partial").length;
@@ -199,58 +161,16 @@ function Dashboard() {
   }));
 
   // 3. Receivables Aging
-  let agingCurrent = 0; // <= 30 days
-  let aging30to60 = 0; // 31-60 days
-  let aging90plus = 0; // 61+ days
-  let totalAgingDays = 0;
-  let agingDealsCount = 0;
-
-  myDeals.forEach(d => {
-    const dealOutstanding = d.total - d.amountPaid;
-    if (dealOutstanding > 0) {
-      const dealDate = new Date(d.dealDate);
-      const diffDays = Math.floor((now.getTime() - dealDate.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (diffDays <= 30) {
-        agingCurrent += dealOutstanding;
-      } else if (diffDays <= 60) {
-        aging30to60 += dealOutstanding;
-      } else {
-        aging90plus += dealOutstanding;
-      }
-      
-      totalAgingDays += diffDays;
-      agingDealsCount++;
-    }
-  });
-
-  const avgAgingDays = agingDealsCount > 0 ? Math.round(totalAgingDays / agingDealsCount) : 0;
+  const agingCurrent = stats.aging_current;
+  const aging30to60 = stats.aging_30_60;
+  const aging90plus = stats.aging_90_plus;
+  const avgAgingDays = stats.avg_aging_days;
   const totalReceivables = agingCurrent + aging30to60 + aging90plus;
+
   // Calculate stroke dash offset for gauge (max 125.6)
   // Let's say 90 days is 100% of the gauge (worst case)
   const agingPct = Math.min(avgAgingDays / 90, 1);
   const agingDashOffset = 125.6 - (125.6 * agingPct);
-
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col gap-2 mb-6">
-          <Skeleton className="h-8 w-72" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Skeleton className="lg:col-span-2 h-80 rounded-xl" />
-          <Skeleton className="h-80 rounded-xl" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <PageTransition className="relative p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto space-y-8 font-sans overflow-hidden">

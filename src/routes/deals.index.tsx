@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { useDb } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,8 @@ import {
   Plus, Search, Download, FilterX, Eye
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
+import { useDealsPaginated, useDashboardStats } from "@/hooks/queries";
+import { useDebounce } from "@/hooks/use-debounce";
 import { formatEGP, formatDate, formatCompactEGP } from "@/lib/format";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -36,83 +37,42 @@ export const Route = createFileRoute("/deals/")({
 
 function DealsList() {
   const { user } = useAuth();
-  const db = useDb();
   const { t } = useTranslation("common");
   
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(20);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
+  
+  // Debounce the search query for the API
+  const debouncedQ = useDebounce(q, 300);
 
-  useEffect(() => {
-    const tId = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(tId);
-  }, []);
+  // Use the new paginated query
+  const { data: dealsData, isLoading: dealsLoading } = useDealsPaginated(page + 1, pageSize, status, debouncedQ);
+  const filtered = dealsData?.data || [];
+  const count = dealsData?.count || 0;
 
-  const allDeals = db.listDeals();
-  const visible = useMemo(() => {
-    return allDeals;
-  }, [allDeals]);
-
-  const filtered = useMemo(() => {
-    return visible.filter((d) => {
-      if (status !== "all" && d.paymentStatus !== status) return false;
-      if (!q) return true;
-      const s = q.toLowerCase();
-      return (
-        d.reference.toLowerCase().includes(s) ||
-        d.customerName.toLowerCase().includes(s) ||
-        d.salesmanName.toLowerCase().includes(s)
-      );
-    });
-  }, [visible, q, status]);
-
-  const totalDeals = visible.length;
-  const pipelineValue = visible.filter(d => d.paymentStatus !== "paid").reduce((sum, d) => sum + (d.total - d.amountPaid), 0);
-  const collectedValue = filtered.reduce((acc, d) => acc + (d.paymentStatus === "paid" ? d.total : d.paymentStatus === "partial" ? d.total / 2 : 0), 0);
-
+  // Global stats for the widgets
+  const { data: stats } = useDashboardStats();
+  const pipelineValue = stats?.outstanding || 0;
+  const collectedValue = stats?.paid || 0;
+  const totalDeals = stats?.total_deals || count; // approx
+  
+  // Calculate salesHistoryData from stats (assuming the RPC returns 7 days of history, we'll map that to the chart)
   const salesHistoryData = useMemo(() => {
-    const dates: string[] = [];
-    for (let i = 14; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      dates.push(d.toISOString().split("T")[0]);
-    }
-
-    const dailyData = dates.reduce((acc, date) => {
-      acc[date] = { date, sales: 0, collected: 0 };
-      return acc;
-    }, {} as Record<string, { date: string; sales: number; collected: number }>);
-
-    allDeals.forEach(d => {
-      const date = d.dealDate ? d.dealDate.split("T")[0] : d.createdAt.split("T")[0];
-      if (dailyData[date]) {
-        dailyData[date].sales += d.total;
-        dailyData[date].collected += d.amountPaid;
-      }
-    });
-
-    return Object.values(dailyData).map(d => {
-      const dateObj = new Date(d.date);
-      const label = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (!stats?.last_7_days) return [];
+    return stats.last_7_days.map((d: any) => {
+      const dateObj = new Date(d.day);
       return {
-        ...d,
-        label
+        date: d.day,
+        label: dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        sales: d.total,
+        collected: d.amount_paid
       };
     });
-  }, [allDeals]);
+  }, [stats]);
 
-  const salesmanData = useMemo(() => {
-    const stats: Record<string, { name: string; collected: number; outstanding: number; total: number }> = {};
-    allDeals.forEach(d => {
-      if (!stats[d.salesmanName]) {
-        stats[d.salesmanName] = { name: d.salesmanName, collected: 0, outstanding: 0, total: 0 };
-      }
-      stats[d.salesmanName].collected += d.amountPaid;
-      stats[d.salesmanName].outstanding += (d.total - d.amountPaid);
-      stats[d.salesmanName].total += d.total;
-    });
-    return Object.values(stats).sort((a, b) => b.total - a.total).slice(0, 5);
-  }, [allDeals]);
+  const salesmanData = stats?.top_salesmen || [];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -284,17 +244,17 @@ function DealsList() {
           {/* Deals Table & Filters */}
           <motion.div variants={itemVariants} initial="hidden" animate="show" className="space-y-4">
             <Card className="shadow-sm border-slate-200 dark:border-slate-800">
-              <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 rtl:right-3 rtl:left-auto" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    className="ps-9 h-10 text-sm focus-visible:ring-indigo-500 placeholder-slate-400"
-                    placeholder={t("deals.search")}
+                    placeholder={t("deals.search_deals", "Search deals...")}
                     value={q}
-                    onChange={(e) => setQ(e.target.value)}
+                    onChange={(e) => { setQ(e.target.value); setPage(0); }}
+                    className="pl-9 h-10 border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
                   />
                 </div>
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={(val) => { setStatus(val); setPage(0); }}>
                   <SelectTrigger className="sm:w-56 h-10 text-xs">
                     <SelectValue placeholder={t("deals.filter_all")} />
                   </SelectTrigger>
@@ -305,10 +265,10 @@ function DealsList() {
                     <SelectItem value="paid">{t("deals.payment_status.paid")}</SelectItem>
                   </SelectContent>
                 </Select>
-              </CardContent>
+              </div>
             </Card>
 
-            {loading ? (
+            {dealsLoading ? (
               <Card className="border-slate-200 dark:border-slate-800">
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -346,7 +306,17 @@ function DealsList() {
                 </CardContent>
               </Card>
             ) : (
-              <DataTable columns={columns} data={filtered} />
+              <DataTable
+                columns={columns}
+                data={filtered}
+                showSearch={false}
+                serverSidePagination={{
+                  pageIndex: page,
+                  pageSize,
+                  pageCount: Math.ceil(count / pageSize),
+                  onPageChange: setPage
+                }}
+              />
             )}
           </motion.div>
         </div>

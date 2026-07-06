@@ -11,15 +11,19 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("unichem-theme") as Theme;
-      if (saved) return saved;
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      return prefersDark ? "dark" : "light";
+  // Default to "light" on the server to avoid hydration mismatch.
+  // The real preference is applied in the useEffect below.
+  const [theme, setThemeState] = useState<Theme>("light");
+
+  // On mount (client only), read the saved preference or system setting.
+  useEffect(() => {
+    const saved = localStorage.getItem("unichem-theme") as Theme | null;
+    if (saved === "dark" || saved === "light") {
+      setThemeState(saved);
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      setThemeState("dark");
     }
-    return "light";
-  });
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;

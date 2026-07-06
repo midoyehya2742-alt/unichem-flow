@@ -3,7 +3,7 @@ import {
   Outlet, Link, createRootRouteWithContext, useRouter,
   HeadContent, Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, type ReactNode, Suspense } from "react";
 import { useTranslation, I18nextProvider } from "react-i18next";
 import i18n from "@/lib/i18n";
 
@@ -100,7 +100,13 @@ function RootComponent() {
       <ThemeProvider>
         <I18nextProvider i18n={i18n}>
           <AuthProvider>
-            <Outlet />
+            <Suspense fallback={
+              <div className="flex min-h-screen items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+              </div>
+            }>
+              <Outlet />
+            </Suspense>
             <Toaster
               richColors
               position="top-right"

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { newId, nowIso, useDb } from "@/lib/store";
+import { newId, nowIso } from "@/lib/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PackagePlus, Pencil, Trash2, Search, Download, Printer, Plus, Minus, RefreshCw, PackageOpen } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useInventoryMovementsPaginated, useDashboardStats, useProducts, useSettings, useUpsertProduct, useDeleteProduct, useAdjustInventory } from "@/hooks/queries";
 import { formatDateTime, formatNumber, formatCompactEGP } from "@/lib/format";
-import type { InventoryAdjustmentType, Product, User, InventoryMovement } from "@/lib/types";
+import type { InventoryAdjustmentType, Product, InventoryMovement } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
@@ -47,11 +48,11 @@ const units = ["KG", "Ton", "Bag", "Drum", "L", "Box", "Piece"];
 
 function InventoryPage() {
   const { user } = useAuth();
-  const db = useDb();
+  const { data: productsData, isLoading: loading } = useProducts();
+  const upsertProduct = useUpsertProduct();
+  const deleteProduct = useDeleteProduct();
   const { t, i18n } = useTranslation("common");
-  const [loading, setLoading] = useState(true);
-  const products = db.listProducts();
-  const movements = db.listInventoryMovements();
+  const products = useMemo(() => (productsData ?? []).filter(p => !p.archived), [productsData]);
   const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))).sort();
   
   const [query, setQuery] = useState("");
@@ -62,10 +63,15 @@ function InventoryPage() {
   const [adjusting, setAdjusting] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  useEffect(() => {
-    const tId = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(tId);
-  }, []);
+  // Pagination for movements
+  const [historyPage, setHistoryPage] = useState(0);
+  const historyPageSize = 20;
+  
+  const { data: movementsData, isLoading: movementsLoading } = useInventoryMovementsPaginated(historyPage + 1, historyPageSize);
+  const movements = movementsData?.data || [];
+  const movementsCount = movementsData?.count || 0;
+
+  const { data: stats } = useDashboardStats();
 
   const filtered = useMemo(() => products.filter((p) => {
     const low = p.stockQuantity <= p.minimumStockLevel;
@@ -81,39 +87,17 @@ function InventoryPage() {
   const totalStockValue = products.reduce((acc, p) => acc + p.stockQuantity * p.defaultPrice, 0);
 
   const movementHistoryData = useMemo(() => {
-    const dates: string[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      dates.push(d.toISOString().split("T")[0]);
-    }
-
-    const dailyData = dates.reduce((acc, date) => {
-      acc[date] = { date, inward: 0, outward: 0 };
-      return acc;
-    }, {} as Record<string, { date: string; inward: number; outward: number }>);
-
-    movements.forEach(m => {
-      const date = m.createdAt.split("T")[0];
-      if (dailyData[date]) {
-        const qty = Math.abs(m.quantityChanged);
-        if (m.type === "increase" || (m.type === "correction" && m.quantityChanged > 0)) {
-          dailyData[date].inward += qty;
-        } else {
-          dailyData[date].outward += qty;
-        }
-      }
-    });
-
-    return Object.values(dailyData).map(d => {
+    if (!stats?.movement_history) return [];
+    return stats.movement_history.map((d: any) => {
       const dateObj = new Date(d.date);
-      const label = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return {
-        ...d,
-        label
+        date: d.date,
+        label: dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        inward: d.inward,
+        outward: d.outward
       };
     });
-  }, [movements]);
+  }, [stats]);
 
   const categoryStockData = useMemo(() => {
     const stats: Record<string, { name: string; current: number; minimum: number }> = {};
@@ -289,7 +273,8 @@ function InventoryPage() {
     },
   ];
 
-  const settings = db.getSettings();
+  const { data: settingsData } = useSettings();
+  const settings = settingsData ?? { companyName: "UniChem ERP", defaultTax: 14, currency: "EGP" as const };
 
   return (
     <>
@@ -558,14 +543,24 @@ function InventoryPage() {
                 </Button>
               </GlowCardHeader>
               <GlowCardContent className="p-0">
-                {loading ? (
+                {movementsLoading ? (
                   <div className="p-4"><TableSkeleton columns={5} rows={5} /></div>
                 ) : movements.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white">No logs found</p>
                   </div>
                 ) : (
-                  <DataTable columns={historyColumns} data={movements} showSearch={false} />
+                  <DataTable 
+                    columns={historyColumns} 
+                    data={movements} 
+                    showSearch={false}
+                    serverSidePagination={{
+                      pageIndex: historyPage,
+                      pageSize: historyPageSize,
+                      pageCount: Math.ceil(movementsCount / historyPageSize),
+                      onPageChange: setHistoryPage
+                    }}
+                  />
                 )}
               </GlowCardContent>
             </GlowCard>
@@ -582,7 +577,7 @@ function InventoryPage() {
           onSave={() => {
             if (!editing.name.trim()) return toast.error("Product name required");
             if (!editing.category.trim()) return toast.error("Product category required");
-            db.upsertProduct(editing);
+            upsertProduct.mutate(editing);
             toast.success("Product saved");
             setProductOpen(false);
           }}
@@ -590,7 +585,7 @@ function InventoryPage() {
       )}
 
       {adjusting && user && (
-        <AdjustmentDialog product={adjusting} actor={user} onClose={() => setAdjusting(null)} />
+        <AdjustmentDialog product={adjusting} onClose={() => setAdjusting(null)} />
       )}
 
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -607,7 +602,7 @@ function InventoryPage() {
               className="bg-rose-600 hover:bg-rose-700 text-xs text-white"
               onClick={() => {
                 if (!deleteTarget) return;
-                db.deleteProduct(deleteTarget.id);
+                deleteProduct.mutate(deleteTarget.id);
                 toast.success(t("inventory.product_deleted"));
                 setDeleteTarget(null);
               }}
@@ -666,8 +661,8 @@ function ProductDialog({
   );
 }
 
-function AdjustmentDialog({ product, actor, onClose }: { product: Product; actor: User; onClose: () => void }) {
-  const db = useDb();
+function AdjustmentDialog({ product, onClose }: { product: Product; onClose: () => void }) {
+  const adjustInventory = useAdjustInventory();
   const { t } = useTranslation("common");
   const [mode, setMode] = useState<InventoryAdjustmentType>("increase");
   const [quantity, setQuantity] = useState(0);
@@ -681,7 +676,7 @@ function AdjustmentDialog({ product, actor, onClose }: { product: Product; actor
 
   const save = () => {
     if (quantity < 0) return toast.error(t("inventory.qty_negative"));
-    db.adjustInventory(product.id, preview, actor, mode, reason || undefined);
+    adjustInventory.mutate({ productId: product.id, quantityAfter: preview, type: mode, reason: reason || undefined });
     toast.success(t("inventory.stock_adjusted"));
     onClose();
   };

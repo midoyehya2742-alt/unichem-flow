@@ -32,6 +32,12 @@ interface DataTableProps<TData, TValue> {
   searchKey?: string
   showSearch?: boolean
   showColumnVisibility?: boolean
+  serverSidePagination?: {
+    pageIndex: number
+    pageSize: number
+    pageCount: number
+    onPageChange: (page: number) => void
+  }
 }
 
 export function DataTable<TData, TValue>({
@@ -39,6 +45,7 @@ export function DataTable<TData, TValue>({
   data,
   showSearch = true,
   showColumnVisibility = true,
+  serverSidePagination,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
@@ -49,16 +56,19 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getPaginationRowModel: serverSidePagination ? undefined : getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
+    manualPagination: !!serverSidePagination,
+    pageCount: serverSidePagination?.pageCount ?? -1,
     state: {
       sorting,
       globalFilter,
       columnVisibility,
+      ...(serverSidePagination && { pagination: { pageIndex: serverSidePagination.pageIndex, pageSize: serverSidePagination.pageSize } })
     },
   })
 
@@ -156,10 +166,10 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                  className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-3">
+                    <TableCell key={cell.id} className="p-3 text-xs md:text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -167,13 +177,10 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-48 text-center text-slate-500 text-sm">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 grid place-items-center mb-2">
-                      <Inbox className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <p className="font-semibold text-slate-700 dark:text-slate-300">{t("no_results", "No data to display")}</p>
-                    <p className="text-xs text-slate-400 max-w-xs">{t("no_match_filters", "We couldn't find anything matching your current filters or search terms.")}</p>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <div className="flex flex-col items-center justify-center text-slate-500 py-6">
+                    <Inbox className="h-8 w-8 text-slate-300 mb-2" />
+                    <p>{t("common.no_results", "No results found.")}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -228,14 +235,18 @@ export function DataTable<TData, TValue>({
 
       <div className="flex items-center justify-between px-2">
         <div className="text-xs text-slate-500">
-          {t("showing_rows", "Showing {{count}} rows", { count: table.getRowModel().rows.length })}
+          {serverSidePagination ? (
+             t("common.page_info", { current: serverSidePagination.pageIndex + 1, total: serverSidePagination.pageCount, defaultValue: `Page ${serverSidePagination.pageIndex + 1} of ${serverSidePagination.pageCount}` })
+          ) : (
+            t("showing_rows", "Showing {{count}} rows", { count: table.getRowModel().rows.length })
+          )}
         </div>
         <div className="flex items-center space-x-2 space-x-reverse">
           <Button
             variant="outline"
             className="h-8 w-8 p-0 border-slate-200 dark:border-slate-800"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={() => serverSidePagination ? serverSidePagination.onPageChange(serverSidePagination.pageIndex - 1) : table.previousPage()}
+            disabled={serverSidePagination ? serverSidePagination.pageIndex === 0 : !table.getCanPreviousPage()}
           >
             <span className="sr-only">Go to previous page</span>
             <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
@@ -243,8 +254,8 @@ export function DataTable<TData, TValue>({
           <Button
             variant="outline"
             className="h-8 w-8 p-0 border-slate-200 dark:border-slate-800"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={() => serverSidePagination ? serverSidePagination.onPageChange(serverSidePagination.pageIndex + 1) : table.nextPage()}
+            disabled={serverSidePagination ? serverSidePagination.pageIndex >= serverSidePagination.pageCount - 1 : !table.getCanNextPage()}
           >
             <span className="sr-only">Go to next page</span>
             <ChevronRight className="h-4 w-4 rtl:rotate-180" />

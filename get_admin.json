@@ -1,1 +1,0 @@
-{"query":"SELECT id, role FROM public.profiles WHERE role = 'admin' LIMIT 1;"}

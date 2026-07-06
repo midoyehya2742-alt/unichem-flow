@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { useDb } from "@/lib/store";
+import { useSettings, useUpdateSettings } from "@/hooks/queries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Settings, Save, ShieldAlert, ImagePlus, Trash2, Globe, Moon, Sun, Clock, Calendar } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -21,14 +21,21 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const db = useDb();
+  const { data: s, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
   const { t, i18n } = useTranslation("common");
   const { theme, setTheme } = useTheme();
-  const s = db.getSettings();
-  const [companyName, setCompanyName] = useState(s.companyName);
-  const [defaultTax, setDefaultTax] = useState(s.defaultTax);
-  const [logoDataUrl, setLogoDataUrl] = useState(s.logoDataUrl);
+  const [companyName, setCompanyName] = useState("");
+  const [defaultTax, setDefaultTax] = useState(0);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!s) return;
+    setCompanyName(s.companyName);
+    setDefaultTax(s.defaultTax);
+    setLogoDataUrl(s.logoDataUrl);
+  }, [s]);
 
   const [dateFormat, setDateFormat] = useState(() => {
     if (typeof window !== "undefined") {
@@ -58,12 +65,16 @@ function SettingsPage() {
       toast.error(t("settings.company_req"));
       return;
     }
-    db.updateSettings({ ...s, companyName, defaultTax, logoDataUrl });
+    updateSettings.mutate({ ...s!, companyName, defaultTax, logoDataUrl });
     localStorage.setItem("unichem-date-format", dateFormat);
     localStorage.setItem("unichem-timezone", timezone);
     window.dispatchEvent(new Event("unichem-preferences-updated"));
     toast.success(t("settings.updated"));
   };
+
+  if (isLoading || !s) {
+    return <div className="p-8 text-center text-slate-500">{t("common.loading", { defaultValue: "Loading..." })}</div>;
+  }
 
   return (
     <PageTransition className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6 font-sans">

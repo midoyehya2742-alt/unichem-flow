@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Beaker, Loader2, KeyRound, UserPlus, LogIn, Mail, ArrowRight, ShieldCheck,
+  Loader2, KeyRound, Mail, ArrowRight, ShieldCheck,
   Eye, EyeOff, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Access Gate — UniChem ERP" }] }),
@@ -21,22 +21,18 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-
 type TabMode = "signin" | "signup" | "forgot" | "reset";
 
 function AuthPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const { next } = Route.useSearch();
-  const redirectTarget: string = next ?? "/dashboard";
-
+  const { t } = useTranslation("common");
 
   const [activeTab, setActiveTab] = useState<TabMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,44 +50,35 @@ function AuthPage() {
   // Redirect authenticated users (honor ?next=)
   useEffect(() => {
     if (user) {
-      if (next) {
-        window.location.replace(next);
-      } else {
-        navigate({ to: "/dashboard", replace: true });
-      }
+      navigate({ to: next ?? "/dashboard", replace: true });
     }
   }, [user, navigate, next]);
 
   // ─── Sign In ────────────────────────────────────────────────────
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) { toast.error("Email address is required"); return; }
-    if (!password) { toast.error("Password is required"); return; }
+    if (!email.trim()) { toast.error(t("auth.email_required")); return; }
+    if (!password) { toast.error(t("auth.password_required")); return; }
     setBusy(true);
     try {
       const r = await login(email.trim().toLowerCase(), password);
       if (!r.ok) {
-        toast.error(r.error ?? "Invalid email or password. Please try again.");
+        toast.error(r.error ?? t("auth.invalid_credentials"));
         return;
       }
-      toast.success("Welcome back! Redirecting…");
-      if (next) window.location.replace(next);
-      else navigate({ to: "/dashboard", replace: true });
-    } catch (err: any) {
-
-      toast.error(err.message || "An unexpected error occurred. Please try again.");
+      toast.success(t("auth.welcome_redirect"));
+      navigate({ to: next ?? "/dashboard", replace: true });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("root.something_went_wrong"));
     } finally {
       setBusy(false);
     }
   };
 
-  // ─── Sign Up ────────────────────────────────────────────────────
-  // Removed sign up logic
-
   // ─── Forgot Password ────────────────────────────────────────────
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) { toast.error("Please enter your email address"); return; }
+    if (!email.trim()) { toast.error(t("auth.email_required")); return; }
 
     setBusy(true);
     try {
@@ -100,14 +87,14 @@ function AuthPage() {
       });
 
       if (error) {
-        toast.error(error.message || "Failed to send reset email. Please try again.");
+        toast.error(error.message || t("root.something_went_wrong"));
         return;
       }
 
       setForgotSent(true);
-      toast.success("Password reset link sent! Check your inbox.", { duration: 6000 });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to send reset email.");
+      toast.success(t("auth.reset_link_success"), { duration: 6000 });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("root.something_went_wrong"));
     } finally {
       setBusy(false);
     }
@@ -116,25 +103,25 @@ function AuthPage() {
   // ─── Reset Password (from email link) ──────────────────────────
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password) { toast.error("New password is required"); return; }
-    if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (password !== confirmPassword) { toast.error("Passwords do not match"); return; }
+    if (!password) { toast.error(t("auth.password_required")); return; }
+    if (password.length < 8) { toast.error(t("auth.password_min_length")); return; }
+    if (password !== confirmPassword) { toast.error(t("auth.passwords_no_match")); return; }
 
     setBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        toast.error(error.message || "Failed to update password. Please request a new reset link.");
+        toast.error(error.message || t("root.something_went_wrong"));
         return;
       }
       setResetSuccess(true);
-      toast.success("Password updated successfully! You can now sign in.", { duration: 5000 });
+      toast.success(t("auth.password_update_success"), { duration: 5000 });
       setTimeout(() => {
         setActiveTab("signin");
         window.history.replaceState({}, "", "/auth");
       }, 2000);
-    } catch (err: any) {
-      toast.error(err.message || "Password reset failed.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("root.something_went_wrong"));
     } finally {
       setBusy(false);
     }
@@ -163,43 +150,41 @@ function AuthPage() {
 
         <div className="space-y-8 max-w-2xl relative z-10 bg-slate-900/40 p-10 rounded-[2rem] backdrop-blur-xl border border-white/10 shadow-2xl ring-1 ring-white/5">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-800/50 border border-slate-600/50 text-sm font-medium text-slate-300 shadow-sm backdrop-blur-md tracking-wide">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" /> Secure Corporate Network
+            <ShieldCheck className="h-4 w-4 text-emerald-400" /> {t("auth.secure_network")}
           </div>
           
           <div className="space-y-4">
             <h2 className="text-4xl xl:text-5xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
-              Enterprise Operations Portal
+              {t("auth.portal_title")}
             </h2>
             <p className="text-xl font-medium text-slate-300 drop-shadow-md tracking-wide">
-              Centralized management for UniChem's supply chain, finance, and commercial operations.
+              {t("auth.portal_desc")}
             </p>
           </div>
           
           <p className="text-slate-400 text-base leading-relaxed font-light">
-            Please authenticate with your corporate credentials to access the secure internal network. 
-            This system contains confidential business information. Unauthorized access or distribution 
-            of data is strictly prohibited and monitored.
+            {t("auth.portal_warning")}
           </p>
           
           <div className="grid grid-cols-3 gap-6 pt-8 border-t border-white/10">
             <div>
-              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Sales & CRM</div>
-              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">{t("auth.module_sales")}</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">{t("auth.module_active")}</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Inventory & Logistics</div>
-              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">{t("auth.module_inventory")}</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">{t("auth.module_active")}</div>
             </div>
             <div>
-              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">Finance & Audit</div>
-              <div className="text-xs text-slate-400 font-medium mt-1">Module Active</div>
+              <div className="text-lg font-semibold text-white tracking-tight drop-shadow-sm">{t("auth.module_finance")}</div>
+              <div className="text-xs text-slate-400 font-medium mt-1">{t("auth.module_active")}</div>
             </div>
           </div>
         </div>
 
         <div className="text-sm text-slate-400 relative z-10 flex items-center justify-between font-medium">
-          <span>© {new Date().getFullYear()} UniChem Co. All rights reserved.</span>
-          <span>System Version v2.1.0-prod</span>
+          <span>{t("auth.copyright", { year: new Date().getFullYear() })}</span>
+          <span>{t("auth.version")}</span>
         </div>
       </div>
 
@@ -217,14 +202,14 @@ function AuthPage() {
           <Card className="border-0 shadow-none md:shadow-2xl md:shadow-slate-200/50 dark:md:shadow-none md:border md:border-slate-200/60 dark:md:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-3xl overflow-hidden">
             <CardHeader className="space-y-2 pb-6 px-6 sm:px-8 pt-8">
               <CardTitle className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {activeTab === "signin" && "Welcome back"}
-                {activeTab === "forgot" && "Reset password"}
-                {activeTab === "reset" && "Set new password"}
+                {activeTab === "signin" && t("auth.welcome_back")}
+                {activeTab === "forgot" && t("auth.reset_password")}
+                {activeTab === "reset" && t("auth.set_new_password")}
               </CardTitle>
               <CardDescription className="text-base text-slate-500 dark:text-slate-400 font-medium">
-                {activeTab === "signin" && "Sign in to your account to continue"}
-                {activeTab === "forgot" && "We'll email you a secure recovery link"}
-                {activeTab === "reset" && "Enter a new password for your account"}
+                {activeTab === "signin" && t("auth.sign_in_desc")}
+                {activeTab === "forgot" && t("auth.recovery_desc")}
+                {activeTab === "reset" && t("auth.new_password_desc")}
               </CardDescription>
             </CardHeader>
 
@@ -237,16 +222,16 @@ function AuthPage() {
                       <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 grid place-items-center text-emerald-600">
                         <CheckCircle2 className="h-6 w-6" />
                       </div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-white">Check your email</p>
-                      <p className="text-xs text-slate-500">A password reset link was sent to <strong>{email}</strong>. Check your inbox and spam folder.</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">{t("auth.check_email")}</p>
+                      <p className="text-xs text-slate-500" dangerouslySetInnerHTML={{ __html: t("auth.reset_link_sent", { email: `<strong>${email}</strong>` }) }} />
                       <Button type="button" variant="outline" size="sm" className="mt-2 text-xs" onClick={() => { setForgotSent(false); setEmail(""); }}>
-                        <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Send again
+                        <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> {t("auth.send_again")}
                       </Button>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="forgot-email">Work Email</Label>
+                        <Label htmlFor="forgot-email">{t("auth.work_email")}</Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                           <Input
@@ -255,14 +240,14 @@ function AuthPage() {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@unichem.local"
+                            placeholder={t("auth.placeholder_email")}
                             className="pl-10 h-11"
                           />
                         </div>
                       </div>
                       <Button type="submit" disabled={busy} className="w-full h-11">
                         {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
-                        Send recovery link
+                        {t("auth.send_recovery_link")}
                       </Button>
                     </>
                   )}
@@ -272,7 +257,7 @@ function AuthPage() {
                     onClick={() => { setActiveTab("signin"); setForgotSent(false); }}
                     className="w-full text-xs text-indigo-500 hover:text-indigo-600"
                   >
-                    ← Back to Sign In
+                    {t("auth.back_to_sign_in")}
                   </Button>
                 </form>
               )}
@@ -285,13 +270,13 @@ function AuthPage() {
                       <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 grid place-items-center text-emerald-600">
                         <CheckCircle2 className="h-6 w-6" />
                       </div>
-                      <p className="text-sm font-semibold text-slate-800 dark:text-white">Password updated!</p>
-                      <p className="text-xs text-slate-500">Redirecting to sign in…</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">{t("auth.password_updated")}</p>
+                      <p className="text-xs text-slate-500">{t("auth.redirecting_signin")}</p>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="new-password">New Password</Label>
+                        <Label htmlFor="new-password">{t("auth.new_password")}</Label>
                         <div className="relative">
                           <Input
                             id="new-password"
@@ -299,7 +284,7 @@ function AuthPage() {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="At least 6 characters"
+                            placeholder={t("auth.placeholder_password")}
                             className="h-11 pr-10"
                           />
                           <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
@@ -308,7 +293,7 @@ function AuthPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="confirm-new-password">Confirm Password</Label>
+                        <Label htmlFor="confirm-new-password">{t("auth.confirm_password")}</Label>
                         <div className="relative">
                           <Input
                             id="confirm-new-password"
@@ -316,7 +301,7 @@ function AuthPage() {
                             required
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Repeat new password"
+                            placeholder={t("auth.placeholder_confirm")}
                             className="h-11 pr-10"
                           />
                           <button type="button" tabIndex={-1} onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
@@ -326,7 +311,7 @@ function AuthPage() {
                       </div>
                       <Button type="submit" disabled={busy} className="w-full h-11">
                         {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <KeyRound className="h-4 w-4 mr-2" />}
-                        Update Password
+                        {t("auth.update_password")}
                       </Button>
                     </>
                   )}
@@ -337,7 +322,7 @@ function AuthPage() {
               {activeTab === "signin" && (
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">Work Email</Label>
+                    <Label htmlFor="signin-email">{t("auth.work_email")}</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
@@ -346,7 +331,7 @@ function AuthPage() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="name@unichem.local"
+                        placeholder={t("auth.placeholder_email")}
                         className="pl-10 h-11"
                         autoComplete="email"
                       />
@@ -355,13 +340,13 @@ function AuthPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="signin-password">Password</Label>
+                      <Label htmlFor="signin-password">{t("auth.password")}</Label>
                       <button
                         type="button"
                         onClick={() => setActiveTab("forgot")}
                         className="text-xs text-indigo-500 hover:text-indigo-600 transition"
                       >
-                        Forgot password?
+                        {t("auth.forgot_password")}
                       </button>
                     </div>
                     <div className="relative">
@@ -382,7 +367,7 @@ function AuthPage() {
 
                   <Button type="submit" disabled={busy} className="w-full h-11">
                     {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRight className="h-4 w-4 mr-2" />}
-                    Access Console
+                    {t("auth.access_console")}
                   </Button>
                 </form>
               )}

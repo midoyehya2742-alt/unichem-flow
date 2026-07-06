@@ -130,7 +130,9 @@ export interface AuditEntry {
   action: string;
   entity: string;
   entityId: string;
-  details?: string;
+  // Stored as jsonb: either a { message } string note, an { old, new } diff
+  // produced by the DB audit trigger, or null.
+  details?: { message: string } | { old?: Record<string, unknown>; new?: Record<string, unknown> } | Record<string, unknown>;
   createdAt: string;
 }
 

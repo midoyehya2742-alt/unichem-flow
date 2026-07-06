@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { useDb } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
 import { ScrollText, ShieldAlert, Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Package, Users, Shield, RefreshCw } from "lucide-react";
@@ -13,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/ui/page-transition";
+import { useAuditLogsPaginated } from "@/hooks/queries";
+import { useDebounce } from "@/hooks/use-debounce";
+import type { AuditEntry } from "@/lib/types";
 
 export const Route = createFileRoute("/audit")({
   head: () => ({ meta: [{ title: "Audit log — UniChem ERP" }] }),
@@ -20,58 +22,34 @@ export const Route = createFileRoute("/audit")({
 });
 
 function AuditPage() {
-  const db = useDb();
   const { t } = useTranslation("common");
-  const log = db.listAudit();
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const debouncedQ = useDebounce(q, 300);
   const [actionFilter, setActionFilter] = useState("all");
   const [entityFilter, setEntityFilter] = useState("all");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
+
+  const { data, isLoading } = useAuditLogsPaginated(page, itemsPerPage, debouncedQ, actionFilter, entityFilter);
+  const paginatedLogs = data?.data || [];
+  const totalLogs = data?.count || 0;
+  const totalPages = Math.ceil(totalLogs / itemsPerPage);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(t);
+    const tId = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(tId);
   }, []);
 
   // reset page to 1 when search or filter values change
   useEffect(() => {
     setPage(1);
-  }, [q, actionFilter, entityFilter]);
+  }, [debouncedQ, actionFilter, entityFilter]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
   };
-
-  // Audit rows come from two sources with different naming: DB triggers log the
-  // plural table name (products, customers, deals, profiles) and SQL verbs
-  // (insert/update/delete), while RPCs log singular entities (deal, inventory)
-  // and friendlier verbs (create). Normalize both so the filters actually match.
-  const normEntity = (s: string) => s.toLowerCase().replace(/s$/, "");
-  const normAction = (s: string) => {
-    const a = s.toLowerCase();
-    if (a === "insert") return "create";
-    if (a === "edit") return "update";
-    if (a === "remove") return "delete";
-    return a;
-  };
-
-  const filteredLogs = log.filter((e) => {
-    const matchesSearch =
-      e.actorName.toLowerCase().includes(q.toLowerCase()) ||
-      e.action.toLowerCase().includes(q.toLowerCase()) ||
-      e.entity.toLowerCase().includes(q.toLowerCase()) ||
-      (e.details && e.details.toLowerCase().includes(q.toLowerCase()));
-
-    const matchesAction = actionFilter === "all" || normAction(e.action) === normAction(actionFilter);
-    const matchesEntity = entityFilter === "all" || normEntity(e.entity) === normEntity(entityFilter);
-
-  });
-
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const paginatedLogs = filteredLogs.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const getEntityIcon = (entity: string) => {
     switch (entity.toLowerCase()) {
@@ -104,72 +82,74 @@ function AuditPage() {
     return <Badge className="bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 text-[10px] hover:bg-slate-500/15 transition-colors">{action}</Badge>;
   };
 
-  function renderDiffs(detailsString?: string) {
-    if (!detailsString) return null;
-    try {
-      const parsed = JSON.parse(detailsString);
-      
-      // If details is plain JSON string but not an old/new diff object
-      if (typeof parsed !== "object" || parsed === null || (!parsed.old && !parsed.new)) {
-        return (
-          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans mt-1 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg leading-relaxed">
-            {typeof parsed === "object" ? JSON.stringify(parsed, null, 2) : String(parsed)}
-          </div>
-        );
-      }
+  // `details` is a jsonb column — supabase-js hands it back already parsed,
+  // never a JSON-encoded string. It's either a { message } note (from
+  // adjust_inventory / request_deal_edit) or an { old, new } diff (from the
+  // DB audit trigger).
+  function renderDiffs(details?: AuditEntry["details"]) {
+    if (!details || typeof details !== "object") return null;
 
-      const oldVal = parsed.old || {};
-      const newVal = parsed.new || {};
-      
-      // Find all unique keys
-      const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
-      
-      // Ignore internal keys
-      const ignoreKeys = ["id", "created_at", "updated_at", "updatedAt", "createdAt"];
-      const filteredKeys = allKeys.filter(k => !ignoreKeys.includes(k));
-      
-      if (filteredKeys.length === 0) {
-        return <div className="text-[10px] text-slate-400 mt-2 italic">{t("audit.no_changes", "No property changes logged.")}</div>;
-      }
-
-      return (
-        <div className="mt-3 border-t border-slate-100 dark:border-slate-800/60 pt-3">
-          <div className="grid grid-cols-3 gap-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-            <span>{t("audit.property", { defaultValue: "Property" })}</span>
-            <span>{t("audit.old_value", { defaultValue: "Old Value" })}</span>
-            <span>{t("audit.new_value", { defaultValue: "New Value" })}</span>
-          </div>
-          <div className="space-y-1.5">
-            {filteredKeys.map((key) => {
-              const oldRaw = oldVal[key];
-              const newRaw = newVal[key];
-
-              const oldStr = oldRaw === null || oldRaw === undefined ? "—" : typeof oldRaw === "object" ? JSON.stringify(oldRaw) : String(oldRaw);
-              const newStr = newRaw === null || newRaw === undefined ? "—" : typeof newRaw === "object" ? JSON.stringify(newRaw) : String(newRaw);
-
-              return (
-                <div key={key} className="grid grid-cols-3 gap-3 text-[11px] items-start py-1 border-b border-slate-100/30 dark:border-slate-900/30 last:border-0 font-mono">
-                  <span className="font-semibold text-slate-500 dark:text-slate-400 truncate capitalize" title={key}>{key}</span>
-                  <span className="text-rose-600 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/20 px-1.5 py-0.5 rounded line-through break-all" title={oldStr}>
-                    {oldStr}
-                  </span>
-                  <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded font-semibold break-all" title={newStr}>
-                    {newStr}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    } catch (e) {
-      // Fallback for plain text
+    if ("message" in details && typeof (details as { message?: unknown }).message === "string") {
       return (
         <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans mt-1 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg leading-relaxed">
-          {detailsString}
+          {(details as { message: string }).message}
         </div>
       );
     }
+
+    const diff = details as { old?: Record<string, unknown>; new?: Record<string, unknown> };
+    if (!diff.old && !diff.new) {
+      return (
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans mt-1 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg leading-relaxed">
+          {JSON.stringify(details, null, 2)}
+        </div>
+      );
+    }
+
+    const oldVal = diff.old || {};
+    const newVal = diff.new || {};
+
+    // Find all unique keys
+    const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
+
+    // Ignore internal keys
+    const ignoreKeys = ["id", "created_at", "updated_at", "updatedAt", "createdAt"];
+    const filteredKeys = allKeys.filter(k => !ignoreKeys.includes(k));
+
+    if (filteredKeys.length === 0) {
+      return <div className="text-[10px] text-slate-400 mt-2 italic">{t("audit.no_changes", "No property changes logged.")}</div>;
+    }
+
+    return (
+      <div className="mt-3 border-t border-slate-100 dark:border-slate-800/60 pt-3">
+        <div className="grid grid-cols-3 gap-3 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+          <span>{t("audit.property", { defaultValue: "Property" })}</span>
+          <span>{t("audit.old_value", { defaultValue: "Old Value" })}</span>
+          <span>{t("audit.new_value", { defaultValue: "New Value" })}</span>
+        </div>
+        <div className="space-y-1.5">
+          {filteredKeys.map((key) => {
+            const oldRaw = (oldVal as Record<string, unknown>)[key];
+            const newRaw = (newVal as Record<string, unknown>)[key];
+
+            const oldStr = oldRaw === null || oldRaw === undefined ? "—" : typeof oldRaw === "object" ? JSON.stringify(oldRaw) : String(oldRaw);
+            const newStr = newRaw === null || newRaw === undefined ? "—" : typeof newRaw === "object" ? JSON.stringify(newRaw) : String(newRaw);
+
+            return (
+              <div key={key} className="grid grid-cols-3 gap-3 text-[11px] items-start py-1 border-b border-slate-100/30 dark:border-slate-900/30 last:border-0 font-mono">
+                <span className="font-semibold text-slate-500 dark:text-slate-400 truncate capitalize" title={key}>{key}</span>
+                <span className="text-rose-600 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/20 px-1.5 py-0.5 rounded line-through break-all" title={oldStr}>
+                  {oldStr}
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded font-semibold break-all" title={newStr}>
+                  {newStr}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   const resetFilters = () => {
@@ -235,7 +215,7 @@ function AuditPage() {
         </CardContent>
       </Card>
 
-      {loading ? (
+      {isLoading ? (
         <Card className="border-slate-200 dark:border-slate-800">
           <div className="p-6 space-y-4">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -243,7 +223,7 @@ function AuditPage() {
             ))}
           </div>
         </Card>
-      ) : filteredLogs.length === 0 ? (
+      ) : paginatedLogs.length === 0 ? (
         <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
           <CardContent className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mb-4">
@@ -283,7 +263,9 @@ function AuditPage() {
                           </div>
                           {!isExpanded && e.details && (
                             <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-md mt-0.5">
-                              {e.details.startsWith("{") ? "Click to view property diff" : e.details}
+                              {"message" in e.details && typeof e.details.message === "string"
+                                ? e.details.message
+                                : "Click to view property diff"}
                             </p>
                           )}
                         </div>
@@ -321,32 +303,29 @@ function AuditPage() {
               })}
             </div>
           </CardContent>
-          {!loading && filteredLogs.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/50 bg-slate-50/10 dark:bg-slate-900/10">
-              <div className="text-xs text-slate-500">
-                {t("common.showing", { defaultValue: "Showing" })} {paginatedLogs.length} {t("common.of", { defaultValue: "of" })} {filteredLogs.length} {t("audit.logs_title", { defaultValue: "Logs" })}
-              </div>
-              <div className="flex items-center gap-1">
+          {!isLoading && paginatedLogs.length > 0 && (
+            <div className="flex items-center justify-between mt-6 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800/60">
+              <p className="text-xs text-slate-500 font-medium">
+                {t("audit.showing_page", { current: page, total: totalPages, defaultValue: `Page ${page} of ${totalPages}` })} ({totalLogs} {t("audit.logs_total", { defaultValue: "logs total" })})
+              </p>
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2 text-xs border-slate-200 dark:border-slate-700"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
+                  className="h-8 px-3 text-xs border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                 >
-                  {t("common.previous", { defaultValue: "Previous" })}
+                  {t("common.previous", "Previous")}
                 </Button>
-                <div className="text-xs font-medium text-slate-600 dark:text-slate-300 px-2">
-                  {page} / {totalPages}
-                </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2 text-xs border-slate-200 dark:border-slate-700"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="h-8 px-3 text-xs border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                 >
-                  {t("common.next", { defaultValue: "Next" })}
+                  {t("common.next", "Next")}
                 </Button>
               </div>
             </div>

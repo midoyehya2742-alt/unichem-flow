@@ -1,3 +1,0 @@
-{
-  "query": "DO $$\nBEGIN\n  PERFORM set_config('request.jwt.claims', '{\"sub\": \"f03ce38c-8e93-462e-8683-0380ebe3095c\", \"role\": \"authenticated\"}', true);\n  PERFORM public.create_deal_with_inventory('{\"reference\": \"test\", \"salesman_id\": \"f03ce38c-8e93-462e-8683-0380ebe3095c\", \"customer_id\": \"5fef9710-8119-41dd-917d-0e768a6bee88\", \"lines\": [{\"quantity\": 1, \"productId\": \"77dc814a-0f4d-47cf-b35e-d56f616c9c62\"}]}', true);\nEND\n$$;"
-}

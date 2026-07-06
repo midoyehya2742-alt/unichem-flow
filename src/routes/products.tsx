@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
-import { newId, nowIso, useDb } from "@/lib/store";
+import { newId, nowIso } from "@/lib/store";
+import { useProducts, useUpsertProduct, useArchiveProduct } from "@/hooks/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,18 +34,14 @@ export const Route = createFileRoute("/products")({
 });
 
 function ProductsPage() {
-  const db = useDb();
+  const { data: products, isLoading: loading } = useProducts();
+  const upsertProduct = useUpsertProduct();
+  const archiveProduct = useArchiveProduct();
   const { t } = useTranslation("common");
-  const [loading, setLoading] = useState(true);
-  const list = db.listProducts();
+  const list = useMemo(() => (products ?? []).filter(p => !p.archived), [products]);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -372,7 +369,7 @@ function ProductsPage() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>{t("common.actions.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => { db.archiveProduct(p.id); toast.success(t("products.archived")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
+                                  <AlertDialogAction onClick={() => { archiveProduct.mutate(p.id); toast.success(t("products.archived")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
                                     {t("products.actions.archive", { defaultValue: "Archive" })}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -446,7 +443,7 @@ function ProductsPage() {
               <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t("common.actions.cancel")}</Button>
               <Button size="sm" onClick={() => {
                 if (!editing.name.trim() || !editing.sku.trim()) return toast.error(t("products.err_name_sku"));
-                db.upsertProduct(editing);
+                upsertProduct.mutate(editing);
                 toast.success(t("products.saved"));
                 setOpen(false);
               }}>{t("products.save_product")}</Button>

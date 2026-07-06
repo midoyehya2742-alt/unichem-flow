@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { newId, nowIso, useDb } from "@/lib/store";
+import { newId, nowIso, getAttachmentUrl } from "@/lib/store";
+import { useDeals, useUpdateDeal, useRequestEditDeal, useReviewEditRequest, useDeleteDeal } from "@/hooks/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import {
   MessageSquare, TrendingUp, Trash2, Edit2, Hourglass, FilePlus2, Wallet, History,
 } from "lucide-react";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatDateTime } from "@/lib/format";
 import type { PaymentStatus } from "@/lib/types";
@@ -34,14 +35,30 @@ export const Route = createFileRoute("/deals/$id")({
 function DealDetails() {
   const { id } = Route.useParams();
   const { user } = useAuth();
-  const db = useDb();
+  const { data: dealsData, isLoading: dealsLoading } = useDeals();
+  const updateDeal = useUpdateDeal();
+  const requestEditDeal = useRequestEditDeal();
+  const reviewEditRequest = useReviewEditRequest();
+  const deleteDeal = useDeleteDeal();
   const navigate = useNavigate();
-  const deal = db.getDeal(id);
+  const deal = dealsData?.find((d) => d.id === id);
   const { t } = useTranslation("common");
 
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(deal?.paymentStatus ?? "unpaid");
-  const [amountPaid, setAmountPaid] = useState<number | string>(deal?.amountPaid ?? 0);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("unpaid");
+  const [amountPaid, setAmountPaid] = useState<number | string>(0);
   const [noteText, setNoteText] = useState("");
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (deal && !hydratedRef.current) {
+      setPaymentStatus(deal.paymentStatus);
+      setAmountPaid(deal.amountPaid);
+      hydratedRef.current = true;
+    }
+  }, [deal]);
+
+  if (dealsLoading) {
+    return <div className="p-8 text-center text-slate-500">{t("deals.loading", { defaultValue: "Loading deal..." })}</div>;
+  }
 
   if (!deal) {
     return (
@@ -67,39 +84,39 @@ function DealDetails() {
   const handleAccept = () => {
     if (!user) return;
     const updated = { ...deal, dealStatus: "approved" as const, updatedAt: nowIso() };
-    db.updateDeal(updated, user);
+    updateDeal.mutate(updated);
     toast.success(`Deal ${deal.reference} approved!`);
   };
 
   const handleReject = () => {
     if (!user) return;
     const updated = { ...deal, dealStatus: "rejected" as const, updatedAt: nowIso() };
-    db.updateDeal(updated, user);
+    updateDeal.mutate(updated);
     toast.error(`Deal ${deal.reference} rejected.`);
   };
 
   const handleRequestEdit = () => {
     if (!user) return;
-    db.requestEditDeal(deal.id, user);
+    requestEditDeal.mutate({ dealId: deal.id, user });
     toast.success("Edit request submitted! Finance will review it shortly.");
   };
 
   const handleApproveEdit = () => {
     if (!user) return;
-    db.reviewEditRequest(deal.id, true, user);
+    reviewEditRequest.mutate({ dealId: deal.id, approved: true, reviewer: user });
     toast.success(`Edit request for ${deal.reference} approved — salesman can now edit.`);
   };
 
   const handleRejectEdit = () => {
     if (!user) return;
-    db.reviewEditRequest(deal.id, false, user);
+    reviewEditRequest.mutate({ dealId: deal.id, approved: false, reviewer: user });
     toast.error(`Edit request for ${deal.reference} rejected.`);
   };
 
   const savePayment = () => {
     if (!user) return;
     const finalAmount = typeof amountPaid === "string" ? parseFloat(amountPaid) || 0 : amountPaid;
-    db.updateDeal({ ...deal, paymentStatus, amountPaid: finalAmount }, user);
+    updateDeal.mutate({ ...deal, paymentStatus, amountPaid: finalAmount });
     toast.success(t("deals.payment_saved"));
   };
 
@@ -112,7 +129,7 @@ function DealDetails() {
         { id: newId(), authorId: user.id, authorName: user.name, text: noteText.trim(), createdAt: nowIso() },
       ],
     };
-    db.updateDeal(updated, user);
+    updateDeal.mutate(updated);
     setNoteText("");
     toast.success(t("deals.note_added"));
   };
@@ -179,7 +196,7 @@ function DealDetails() {
           {isFinanceOrAdmin && (
             <Button variant="destructive" size="sm" onClick={() => {
               if (window.confirm("Are you sure you want to delete this deal?")) {
-                db.deleteDeal(deal.id);
+                deleteDeal.mutate(deal.id);
                 toast.success("Deal deleted");
                 navigate({ to: "/deals" });
               }
@@ -383,7 +400,7 @@ function DealDetails() {
                     key={a.id}
                     type="button"
                     onClick={async () => {
-                      const url = await db.getAttachmentUrl(a);
+                      const url = await getAttachmentUrl(a);
                       if (url) window.open(url, "_blank", "noopener,noreferrer");
                       else toast.error(t("deals.attachment_unavailable"));
                     }}
