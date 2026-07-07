@@ -17,6 +17,7 @@ export default defineConfig({
     plugins: [mcpPlugin()],
   },
   nitro: {
+    preset: "vercel",
     routeRules: {
       "/**": {
         headers: {

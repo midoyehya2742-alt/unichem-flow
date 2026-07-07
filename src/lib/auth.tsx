@@ -23,21 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    async function loadSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await hydrateUser(session.user.id, session.user.email || "");
-      } else {
-        if (mounted) {
-          setUser(null);
-          setLoading(false);
-        }
-      }
-    }
-
-    loadSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // onAuthStateChange fires immediately with the current session on
+    // subscribe (the INITIAL_SESSION event), so a separate getSession() +
+    // hydrateUser() call here would run concurrently with that first fire
+    // and double the "profiles" query on every load for no benefit.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         await hydrateUser(session.user.id, session.user.email || "");
       } else {
