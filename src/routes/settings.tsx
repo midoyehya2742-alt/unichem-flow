@@ -65,11 +65,12 @@ function SettingsPage() {
       toast.error(t("settings.company_req"));
       return;
     }
-    updateSettings.mutate({ ...s!, companyName, defaultTax, logoDataUrl });
     localStorage.setItem("unichem-date-format", dateFormat);
     localStorage.setItem("unichem-timezone", timezone);
     window.dispatchEvent(new Event("unichem-preferences-updated"));
-    toast.success(t("settings.updated"));
+    updateSettings.mutate({ ...s!, companyName, defaultTax, logoDataUrl }, {
+      onSuccess: () => toast.success(t("settings.updated")),
+    });
   };
 
   if (isLoading || !s) {

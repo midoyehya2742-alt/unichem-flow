@@ -268,9 +268,9 @@ function CustomerDialog({
   const update = (patch: Partial<Customer>) => setEditing({ ...editing, ...patch });
   const save = () => {
     if (!editing.name.trim()) return toast.error(t("customers.name_required", { defaultValue: "Name is required" }));
-    upsertCustomer.mutate(editing);
-    toast.success(t("customers.updated"));
-    setOpen(false);
+    upsertCustomer.mutate(editing, {
+      onSuccess: () => { toast.success(t("customers.updated")); setOpen(false); },
+    });
   };
   return (
     <Sheet open={open} onOpenChange={setOpen}>

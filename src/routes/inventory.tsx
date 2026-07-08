@@ -123,7 +123,9 @@ function InventoryPage() {
   const openNew = () => {
     setEditing({
       id: newId(),
-      sku: `PRD-${String(products.length + 1).padStart(3, "0")}`,
+      // Random suffix — `products.length + 1` reused numbers after deletions and
+      // collided with the SKU unique constraint.
+      sku: `PRD-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       name: "",
       category: "General",
       unit: "KG",
@@ -334,7 +336,7 @@ function InventoryPage() {
       <PageHeader
         title={t("nav.inventory")}
         description={t("inventory.desc")}
-        actions={<Button size="sm" onClick={openNew} className="h-9 text-xs shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all"><Plus className="h-3.5 w-3.5 me-2" />{t("inventory.add_product")}</Button>}
+        actions={user?.role !== "salesman" ? <Button size="sm" onClick={openNew} className="h-9 text-xs shadow-md shadow-indigo-600/20 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-all"><Plus className="h-3.5 w-3.5 me-2" />{t("inventory.add_product")}</Button> : undefined}
       />
 
       <motion.div 
@@ -574,12 +576,13 @@ function InventoryPage() {
           setOpen={setProductOpen}
           product={editing}
           setProduct={setEditing}
+          isEdit={products.some((p) => p.id === editing.id)}
           onSave={() => {
             if (!editing.name.trim()) return toast.error("Product name required");
             if (!editing.category.trim()) return toast.error("Product category required");
-            upsertProduct.mutate(editing);
-            toast.success("Product saved");
-            setProductOpen(false);
+            upsertProduct.mutate(editing, {
+              onSuccess: () => { toast.success("Product saved"); setProductOpen(false); },
+            });
           }}
         />
       )}
@@ -602,8 +605,9 @@ function InventoryPage() {
               className="bg-rose-600 hover:bg-rose-700 text-xs text-white"
               onClick={() => {
                 if (!deleteTarget) return;
-                deleteProduct.mutate(deleteTarget.id);
-                toast.success(t("inventory.product_deleted"));
+                deleteProduct.mutate(deleteTarget.id, {
+                  onSuccess: () => toast.success(t("inventory.product_deleted")),
+                });
                 setDeleteTarget(null);
               }}
             >
@@ -618,13 +622,14 @@ function InventoryPage() {
 }
 
 function ProductDialog({
-  open, setOpen, product, setProduct, onSave,
+  open, setOpen, product, setProduct, onSave, isEdit,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
   product: Product;
   setProduct: (product: Product) => void;
   onSave: () => void;
+  isEdit: boolean;
 }) {
   const { t } = useTranslation("common");
   return (
@@ -645,7 +650,14 @@ function ProductDialog({
                 </SelectContent>
               </Select>
             </Field>
-            <Field label={t("inventory.quantity")}><Input type="number" min={0} step="0.01" value={product.stockQuantity === 0 ? "" : product.stockQuantity} onChange={(e) => setProduct({ ...product, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+            {isEdit ? (
+              <Field label={t("inventory.quantity")}>
+                <Input type="number" value={product.stockQuantity} disabled className="h-9 bg-slate-100 dark:bg-slate-800" />
+                <p className="text-[10px] text-slate-400 mt-1">{t("inventory.adjust_via_ledger", { defaultValue: "Use Stock Adjustment to change quantity (keeps an audit trail)." })}</p>
+              </Field>
+            ) : (
+              <Field label={t("inventory.quantity")}><Input type="number" min={0} step="0.01" value={product.stockQuantity === 0 ? "" : product.stockQuantity} onChange={(e) => setProduct({ ...product, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+            )}
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label={t("inventory.threshold")}><Input type="number" min={0} step="0.01" value={product.minimumStockLevel === 0 ? "" : product.minimumStockLevel} onChange={(e) => setProduct({ ...product, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
@@ -676,9 +688,10 @@ function AdjustmentDialog({ product, onClose }: { product: Product; onClose: () 
 
   const save = () => {
     if (quantity < 0) return toast.error(t("inventory.qty_negative"));
-    adjustInventory.mutate({ productId: product.id, quantityAfter: preview, type: mode, reason: reason || undefined });
-    toast.success(t("inventory.stock_adjusted"));
-    onClose();
+    adjustInventory.mutate(
+      { productId: product.id, quantityAfter: preview, type: mode, reason: reason || undefined },
+      { onSuccess: () => { toast.success(t("inventory.stock_adjusted")); onClose(); } },
+    );
   };
 
   return (

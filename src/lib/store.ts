@@ -140,7 +140,7 @@ export const fromDeal = (r: DealRow, users: User[], customers: Customer[]): Deal
     path: a.path ?? undefined, dataUrl: a.dataUrl ?? undefined,
   })),
   paymentType: (r.payment_type as Deal["paymentType"]) ?? undefined,
-  paymentMethod: r.payment_method ?? undefined,
+  paymentMethod: (r.payment_method as Deal["paymentMethod"]) ?? undefined,
   paymentInfo: r.payment_info ?? undefined,
   immediateAmount: r.immediate_amount ? Number(r.immediate_amount) : undefined,
   cheques: (r.cheques as Deal["cheques"]) ?? undefined,
@@ -148,7 +148,7 @@ export const fromDeal = (r: DealRow, users: User[], customers: Customer[]): Deal
   expectedPaymentDate: r.expected_payment_date ?? undefined,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
-  editRequest: (r.edit_request as Deal["editRequest"]) ?? undefined,
+  editRequest: (r.edit_request as unknown as Deal["editRequest"]) ?? undefined,
 });
 
 export const toDeal = (d: Deal) => ({
@@ -185,7 +185,10 @@ export const toDeal = (d: Deal) => ({
 export const fromMovement = (r: InventoryMovementRow, products: Product[], users: User[]): InventoryMovement => ({
   id: r.id,
   productId: r.product_id,
-  productName: products.find(p => p.id === r.product_id)?.name || "Unknown",
+  // Prefer the name snapshotted on the row by the RPC. profiles/products SELECT
+  // is role-scoped, so a finance user's users/products lookups don't contain
+  // every actor/product and would otherwise render "Unknown".
+  productName: r.product_name || products.find(p => p.id === r.product_id)?.name || "Unknown",
   type: r.movement_type as InventoryMovement["type"],
   quantityBefore: Number(r.quantity_before || 0),
   quantityAfter: Number(r.quantity_after || 0),
@@ -193,14 +196,14 @@ export const fromMovement = (r: InventoryMovementRow, products: Product[], users
   reason: r.reason ?? undefined,
   dealId: r.deal_id ?? undefined,
   actorId: r.actor_id || "",
-  actorName: users.find(u => u.id === r.actor_id)?.name || "Unknown",
+  actorName: r.actor_name || users.find(u => u.id === r.actor_id)?.name || "Unknown",
   createdAt: r.created_at,
 });
 
 export const fromAudit = (r: AuditLogRow, users: User[]): AuditEntry => ({
   id: r.id,
   actorId: r.actor_id || "",
-  actorName: users.find(u => u.id === r.actor_id)?.name || "Unknown",
+  actorName: r.actor_name || users.find(u => u.id === r.actor_id)?.name || "Unknown",
   action: r.action,
   entity: r.entity,
   entityId: r.entity_id || "",

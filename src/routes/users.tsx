@@ -69,21 +69,16 @@ function UsersPage() {
   const save = async () => {
     if (!editing) return;
     if (!editing.email.trim() || !editing.name.trim()) return toast.error(t("users.err_name_email"));
-    const creation = upsertUser.mutateAsync({ user: editing, password: password || undefined });
-    if (creation) {
-      setSaving(true);
-      try {
-        await creation;
-        toast.success(t("users.created"));
-        setOpen(false);
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : t("users.create_failed"));
-      } finally {
-        setSaving(false);
-      }
-    } else {
-      toast.success(t("users.updated"));
+    const isNew = !list.some((u) => u.id === editing.id);
+    setSaving(true);
+    try {
+      await upsertUser.mutateAsync({ user: editing, password: password || undefined });
+      toast.success(isNew ? t("users.created") : t("users.updated"));
       setOpen(false);
+    } catch {
+      // Failure is surfaced by the mutation's shared onError handler.
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -245,15 +240,15 @@ function UsersPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>{t("users.delete_confirm_title", { defaultValue: "Are you sure?" })}</AlertDialogTitle>
+                                <AlertDialogTitle>{t("users.delete_confirm_title", { defaultValue: "Revoke this user's access?" })}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  {t("users.delete_confirm_desc", { defaultValue: "This will permanently delete this user account. This action cannot be undone." })}
+                                  {t("users.delete_confirm_desc", { defaultValue: "This deactivates the account so the user can no longer sign in. Their historical records are kept, and you can re-activate them later by editing the user." })}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>{t("common.actions.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => { deleteUser.mutate(u.id); toast.success(t("users.deleted")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
-                                  {t("common.actions.delete", { defaultValue: "Delete" })}
+                                <AlertDialogAction onClick={() => { deleteUser.mutate(u.id, { onSuccess: () => toast.success(t("users.deleted", { defaultValue: "User access revoked" })) }); }} className="bg-rose-500 hover:bg-rose-600 text-white">
+                                  {t("common.actions.delete", { defaultValue: "Revoke access" })}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

@@ -77,75 +77,72 @@ function EditDeal() {
 
   const handleSubmit = async (data: DealFormData, overrideStock: boolean) => {
     if (!user || submitting || !deal) return;
-    
-    const customer = customers.find((c) => c.id === data.customerId)!;
+
+    const customer = customers.find((c) => c.id === data.customerId);
+    if (!customer) {
+      toast.error("Selected customer no longer exists. Please pick another.");
+      return;
+    }
     setSubmitting(true);
-    
+
+    const subtotal = data.lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
+    const afterDisc = subtotal * (1 - (data.discount || 0) / 100);
+    const totalsTotal = afterDisc * (1 + (data.tax || 0) / 100);
+
+    // Editing line items / totals must NOT silently rewrite what finance has
+    // already collected. Preserve the recorded amount paid and re-derive the
+    // payment status from it against the new total.
+    const finalAmountPaid = deal.amountPaid || 0;
+    let finalPaymentStatus: "paid" | "partial" | "unpaid";
+    if (finalAmountPaid <= 0) {
+      finalPaymentStatus = "unpaid";
+    } else if (totalsTotal > 0 && finalAmountPaid >= totalsTotal) {
+      finalPaymentStatus = "paid";
+    } else {
+      finalPaymentStatus = "partial";
+    }
+
+    // Upload attachments first; surface upload errors on their own (they happen
+    // before the mutation, so the mutation's onError won't cover them).
+    let attachments = deal.attachments;
     try {
-      let finalAmountPaid = data.amountPaid || deal.amountPaid || 0;
-      let finalPaymentStatus: "paid" | "partial" | "unpaid" = deal.paymentStatus;
-      
-      const subtotal = data.lines.reduce((s, l) => s + l.quantity * l.unitPrice * (1 - (l.discount || 0) / 100), 0);
-      const afterDisc = subtotal * (1 - (data.discount || 0) / 100);
-      const totalsTotal = afterDisc * (1 + (data.tax || 0) / 100);
-
-      if (data.paymentType === "immediate") {
-         finalAmountPaid = totalsTotal;
-         finalPaymentStatus = "paid";
-      } else {
-         finalAmountPaid = data.immediateAmount || deal.immediateAmount || 0;
-         if (finalAmountPaid >= totalsTotal && totalsTotal > 0) {
-            finalPaymentStatus = "paid";
-         } else if (finalAmountPaid > 0) {
-            finalPaymentStatus = "partial";
-         } else {
-            finalPaymentStatus = "unpaid";
-         }
-      }
-
-      let attachments = deal.attachments;
       if (data.attachments && data.attachments.length > 0) {
         const pending = data.attachments.map(f => ({
-          id: newId(),
-          name: f.name,
-          size: f.size,
-          type: f.type,
-          file: f
+          id: newId(), name: f.name, size: f.size, type: f.type, file: f,
         }));
         const uploaded = await uploadDealFiles(deal.id, pending);
         attachments = [...deal.attachments, ...uploaded];
       }
-
-      await updateDealFull.mutateAsync({ newDeal: {
-        ...deal,
-        customerId: customer.id,
-        customerName: customer.name,
-        lines: data.lines,
-        subtotal,
-        discount: data.discount,
-        tax: data.tax,
-        total: totalsTotal,
-        paymentStatus: finalPaymentStatus,
-        amountPaid: finalAmountPaid,
-        notes: data.notes,
-        attachments,
-        paymentType: data.paymentType,
-        paymentMethod: data.paymentMethod,
-        paymentInfo: data.paymentInfo,
-        immediateAmount: data.paymentType === "installments" ? data.immediateAmount : undefined,
-        cheques: data.paymentType === "installments" && data.paymentMethod === "cheques" ? data.cheques : undefined,
-        dealDate: new Date(data.dealDate).toISOString(),
-        expectedPaymentDate: data.expectedPaymentDate ? new Date(data.expectedPaymentDate).toISOString() : undefined,
-      }, overrideStock: user.role === "admin" && overrideStock });
-
-      clearDraft();
-      toast.success(`Deal ${deal.reference} updated successfully!`);
-      navigate({ to: `/deals/${id}` });
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Error updating transaction record");
-    } finally {
+      toast.error(error instanceof Error ? error.message : "Failed to upload attachments");
       setSubmitting(false);
+      return;
     }
+
+    updateDealFull.mutate({ newDeal: {
+      ...deal,
+      customerId: customer.id,
+      customerName: customer.name,
+      lines: data.lines,
+      subtotal,
+      discount: data.discount,
+      tax: data.tax,
+      total: totalsTotal,
+      paymentStatus: finalPaymentStatus,
+      amountPaid: finalAmountPaid,
+      notes: data.notes,
+      attachments,
+      paymentType: data.paymentType,
+      paymentMethod: data.paymentMethod,
+      paymentInfo: data.paymentInfo,
+      immediateAmount: data.paymentType === "installments" ? data.immediateAmount : undefined,
+      cheques: data.paymentType === "installments" && data.paymentMethod === "cheques" ? data.cheques : undefined,
+      dealDate: new Date(data.dealDate).toISOString(),
+      expectedPaymentDate: data.expectedPaymentDate ? new Date(data.expectedPaymentDate).toISOString() : undefined,
+    }, overrideStock: user.role === "admin" && overrideStock }, {
+      onSuccess: () => { clearDraft(); toast.success(`Deal ${deal.reference} updated successfully!`); navigate({ to: `/deals/${id}` }); },
+      onSettled: () => setSubmitting(false),
+    });
   };
 
   if (!deal) return <div className="p-8 text-center text-slate-500">Loading deal...</div>;

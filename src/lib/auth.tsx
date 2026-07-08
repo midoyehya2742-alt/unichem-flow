@@ -47,8 +47,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       try {
         const profileRes = await supabase.from("profiles").select("*").eq("id", id).single();
-        
+
         if (profileRes.error) throw profileRes.error;
+
+        // A deactivated user must not hold an app session, even if their token
+        // is still valid. Sign them out and drop the user.
+        if (profileRes.data.active === false) {
+          await supabase.auth.signOut();
+          if (mounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
 
         // Read role from profiles.role first (populated by newer create_app_user),
         // then fall back to user_roles table for backwards compatibility.

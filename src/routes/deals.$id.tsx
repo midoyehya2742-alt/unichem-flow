@@ -2,8 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { newId, nowIso, getAttachmentUrl } from "@/lib/store";
-import { useDeals, useUpdateDeal, useRequestEditDeal, useReviewEditRequest, useDeleteDeal } from "@/hooks/queries";
+import { nowIso, getAttachmentUrl } from "@/lib/store";
+import { useDeals, useUpdateDeal, useRequestEditDeal, useReviewEditRequest, useDeleteDeal, useAddDealNote } from "@/hooks/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ function DealDetails() {
   const requestEditDeal = useRequestEditDeal();
   const reviewEditRequest = useReviewEditRequest();
   const deleteDeal = useDeleteDeal();
+  const addDealNote = useAddDealNote();
   const navigate = useNavigate();
   const deal = dealsData?.find((d) => d.id === id);
   const { t } = useTranslation("common");
@@ -84,54 +85,49 @@ function DealDetails() {
   const handleAccept = () => {
     if (!user) return;
     const updated = { ...deal, dealStatus: "approved" as const, updatedAt: nowIso() };
-    updateDeal.mutate(updated);
-    toast.success(`Deal ${deal.reference} approved!`);
+    updateDeal.mutate(updated, { onSuccess: () => toast.success(`Deal ${deal.reference} approved!`) });
   };
 
   const handleReject = () => {
     if (!user) return;
     const updated = { ...deal, dealStatus: "rejected" as const, updatedAt: nowIso() };
-    updateDeal.mutate(updated);
-    toast.error(`Deal ${deal.reference} rejected.`);
+    updateDeal.mutate(updated, { onSuccess: () => toast.error(`Deal ${deal.reference} rejected.`) });
   };
 
   const handleRequestEdit = () => {
     if (!user) return;
-    requestEditDeal.mutate({ dealId: deal.id, user });
-    toast.success("Edit request submitted! Finance will review it shortly.");
+    requestEditDeal.mutate({ dealId: deal.id, user }, {
+      onSuccess: () => toast.success("Edit request submitted! Finance will review it shortly."),
+    });
   };
 
   const handleApproveEdit = () => {
     if (!user) return;
-    reviewEditRequest.mutate({ dealId: deal.id, approved: true, reviewer: user });
-    toast.success(`Edit request for ${deal.reference} approved — salesman can now edit.`);
+    reviewEditRequest.mutate({ dealId: deal.id, approved: true, reviewer: user }, {
+      onSuccess: () => toast.success(`Edit request for ${deal.reference} approved — salesman can now edit.`),
+    });
   };
 
   const handleRejectEdit = () => {
     if (!user) return;
-    reviewEditRequest.mutate({ dealId: deal.id, approved: false, reviewer: user });
-    toast.error(`Edit request for ${deal.reference} rejected.`);
+    reviewEditRequest.mutate({ dealId: deal.id, approved: false, reviewer: user }, {
+      onSuccess: () => toast.error(`Edit request for ${deal.reference} rejected.`),
+    });
   };
 
   const savePayment = () => {
     if (!user) return;
     const finalAmount = typeof amountPaid === "string" ? parseFloat(amountPaid) || 0 : amountPaid;
-    updateDeal.mutate({ ...deal, paymentStatus, amountPaid: finalAmount });
-    toast.success(t("deals.payment_saved"));
+    updateDeal.mutate({ ...deal, paymentStatus, amountPaid: finalAmount }, {
+      onSuccess: () => toast.success(t("deals.payment_saved")),
+    });
   };
 
   const addNote = () => {
     if (!user || !noteText.trim()) return;
-    const updated = {
-      ...deal,
-      financeNotes: [
-        ...deal.financeNotes,
-        { id: newId(), authorId: user.id, authorName: user.name, text: noteText.trim(), createdAt: nowIso() },
-      ],
-    };
-    updateDeal.mutate(updated);
-    setNoteText("");
-    toast.success(t("deals.note_added"));
+    addDealNote.mutate({ dealId: deal.id, text: noteText.trim() }, {
+      onSuccess: () => { setNoteText(""); toast.success(t("deals.note_added")); },
+    });
   };
 
   // Timeline Step Tracker
@@ -196,9 +192,9 @@ function DealDetails() {
           {isFinanceOrAdmin && (
             <Button variant="destructive" size="sm" onClick={() => {
               if (window.confirm("Are you sure you want to delete this deal?")) {
-                deleteDeal.mutate(deal.id);
-                toast.success("Deal deleted");
-                navigate({ to: "/deals" });
+                deleteDeal.mutate(deal.id, {
+                  onSuccess: () => { toast.success("Deal deleted"); navigate({ to: "/deals" }); },
+                });
               }
             }} className="h-8 text-xs">
               <Trash2 className="h-4 w-4 me-2" /> Delete
@@ -656,7 +652,10 @@ function SettlementPanel({
 
 function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string }) {
   const items = useMemo<TimelineItem[]>(() => {
-    const list: TimelineItem[] = [];
+    // Keep the raw ISO timestamp alongside each item purely for sorting — the
+    // displayed `time` is a formatted string ("4 Jul 2026"), which does not sort
+    // chronologically.
+    const list: (TimelineItem & { ts: string })[] = [];
     // Deal created
     list.push({
       id: "created",
@@ -664,6 +663,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
       title: <>Deal created by <strong>{deal.salesmanName}</strong></>,
       description: <>Reference {deal.reference} — total {formatEGP(deal.total)}</>,
       time: formatDateTime(deal.createdAt),
+      ts: deal.createdAt,
       tone: "primary",
     });
     // Deal status change
@@ -674,6 +674,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
         title: "Deal approved",
         description: "Available for processing and payment",
         time: formatDateTime(deal.updatedAt),
+        ts: deal.updatedAt,
         tone: "success",
       });
     } else if (deal.dealStatus === "rejected") {
@@ -682,6 +683,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
         icon: XCircle,
         title: "Deal rejected",
         time: formatDateTime(deal.updatedAt),
+        ts: deal.updatedAt,
         tone: "destructive",
       });
     }
@@ -693,6 +695,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
         icon: Edit2,
         title: <><strong>{er.requestedByName}</strong> requested an edit</>,
         time: formatDateTime(er.requestedAt),
+        ts: er.requestedAt,
         tone: "warning",
       });
       if (er.status === "approved" && er.reviewedAt) {
@@ -701,6 +704,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
           icon: CheckCircle2,
           title: <>Edit approved by <strong>{er.reviewedByName}</strong></>,
           time: formatDateTime(er.reviewedAt),
+          ts: er.reviewedAt,
           tone: "success",
         });
       } else if (er.status === "rejected" && er.reviewedAt) {
@@ -709,6 +713,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
           icon: XCircle,
           title: <>Edit rejected by <strong>{er.reviewedByName}</strong></>,
           time: formatDateTime(er.reviewedAt),
+          ts: er.reviewedAt,
           tone: "destructive",
         });
       }
@@ -721,6 +726,7 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
         title: <>{formatEGP(deal.amountPaid)} recorded</>,
         description: deal.paymentStatus === "paid" ? "Fully settled" : "Partial payment",
         time: formatDateTime(deal.updatedAt),
+        ts: deal.updatedAt,
         tone: deal.paymentStatus === "paid" ? "success" : "warning",
       });
     }
@@ -732,11 +738,12 @@ function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string
         title: <><strong>{n.authorName}</strong> added a note</>,
         description: n.text,
         time: formatDateTime(n.createdAt),
+        ts: n.createdAt,
         tone: "neutral",
       });
     }
-    // Newest first
-    return list.sort((a, b) => (b.time ?? "").localeCompare(a.time ?? ""));
+    // Newest first, by real timestamp
+    return list.sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""));
   }, [deal]);
 
   return (

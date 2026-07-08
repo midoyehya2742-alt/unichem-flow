@@ -609,10 +609,15 @@ function NewCustomerDialog({
   const create = () => {
     if (!form.name.trim()) return toast.error("Customer name is required");
     const c: Customer = { id: newId(), ...form, archived: false, createdAt: new Date().toISOString() };
-    upsertCustomer.mutate(c);
-    toast.success("Customer directories updated");
-    setForm({ name: "", company: "", phone: "", email: "", address: "" });
-    onCreated(c);
+    // Only select the new customer into the deal once it actually persists —
+    // otherwise the deal would reference a customer id that failed to insert.
+    upsertCustomer.mutate(c, {
+      onSuccess: () => {
+        toast.success("Customer directories updated");
+        setForm({ name: "", company: "", phone: "", email: "", address: "" });
+        onCreated(c);
+      },
+    });
   };
 
   return (

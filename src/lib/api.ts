@@ -7,6 +7,13 @@ type DealRow = Database["public"]["Tables"]["deals"]["Row"];
 type InventoryMovementRow = Database["public"]["Tables"]["inventory_movements"]["Row"];
 type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 
+// Free-text search is interpolated into PostgREST `.or()` filter strings, where
+// commas separate conditions and parens/quotes are structural. Strip those so a
+// user typing "ACME, Inc. (x)" can't break or extend the filter expression.
+function sanitizeSearch(q: string): string {
+  return q.replace(/[,()"*]/g, " ").trim();
+}
+
 export async function fetchUsers(): Promise<User[]> {
   const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: true });
   if (error) throw error;
@@ -44,8 +51,9 @@ export async function fetchDealsPaginatedRaw(page: number, pageSize: number, sta
   if (status && status !== "all") {
     query = query.eq("payment_status", status);
   }
-  if (q) {
-    query = query.or(`reference.ilike.%${q}%,customer_name.ilike.%${q}%,salesman_name.ilike.%${q}%`);
+  const qClean = q ? sanitizeSearch(q) : "";
+  if (qClean) {
+    query = query.or(`reference.ilike.%${qClean}%,customer_name.ilike.%${qClean}%,salesman_name.ilike.%${qClean}%`);
   }
 
   const { data, error, count } = await query.range(start, end);
@@ -64,9 +72,9 @@ export async function fetchInventoryMovementsPaginatedRaw(page: number, pageSize
   const end = start + pageSize - 1;
   let query = supabase.from("inventory_movements").select("*", { count: "exact" }).order("created_at", { ascending: false });
 
-  if (q) {
-    // Note: product_name isn't directly on movement, but let's assume filtering by reason or type for now
-    query = query.or(`reason.ilike.%${q}%,movement_type.ilike.%${q}%`);
+  const qClean = q ? sanitizeSearch(q) : "";
+  if (qClean) {
+    query = query.or(`reason.ilike.%${qClean}%,movement_type.ilike.%${qClean}%`);
   }
 
   const { data, error, count } = await query.range(start, end);
@@ -101,8 +109,9 @@ export async function fetchAuditLogsPaginatedRaw(page: number, pageSize: number,
   const end = start + pageSize - 1;
   let query = supabase.from("audit_logs").select("*", { count: "exact" }).order("created_at", { ascending: false });
 
-  if (q) {
-    query = query.or(`action.ilike.%${q}%,entity.ilike.%${q}%`);
+  const qClean = q ? sanitizeSearch(q) : "";
+  if (qClean) {
+    query = query.or(`action.ilike.%${qClean}%,entity.ilike.%${qClean}%`);
   }
   if (actionFilter && actionFilter !== "all") {
     query = query.eq("action", AUDIT_ACTION_DB_VALUES[actionFilter] ?? actionFilter);

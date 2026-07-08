@@ -369,7 +369,7 @@ function ProductsPage() {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>{t("common.actions.cancel", { defaultValue: "Cancel" })}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => { archiveProduct.mutate(p.id); toast.success(t("products.archived")); }} className="bg-rose-500 hover:bg-rose-600 text-white">
+                                  <AlertDialogAction onClick={() => { archiveProduct.mutate(p.id, { onSuccess: () => toast.success(t("products.archived")) }); }} className="bg-rose-500 hover:bg-rose-600 text-white">
                                     {t("products.actions.archive", { defaultValue: "Archive" })}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -434,7 +434,14 @@ function ProductsPage() {
                 <Field label={t("products.packing_unit")}><Input value={editing.unit} onChange={(e) => setEditing({ ...editing, unit: e.target.value })} className="h-9" /></Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label={t("products.stock_qty")}><Input type="number" min={0} step="0.01" value={editing.stockQuantity === 0 ? "" : editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+                {(products ?? []).some((p) => p.id === editing.id) ? (
+                  <Field label={t("products.stock_qty")}>
+                    <Input type="number" value={editing.stockQuantity} disabled className="h-9 bg-slate-100 dark:bg-slate-800" />
+                    <p className="text-[10px] text-slate-400 mt-1">{t("inventory.adjust_via_ledger", { defaultValue: "Adjust quantity from Inventory to keep an audit trail." })}</p>
+                  </Field>
+                ) : (
+                  <Field label={t("products.stock_qty")}><Input type="number" min={0} step="0.01" value={editing.stockQuantity === 0 ? "" : editing.stockQuantity} onChange={(e) => setEditing({ ...editing, stockQuantity: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
+                )}
                 <Field label={t("products.min_threshold")}><Input type="number" min={0} step="0.01" value={editing.minimumStockLevel === 0 ? "" : editing.minimumStockLevel} onChange={(e) => setEditing({ ...editing, minimumStockLevel: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
               </div>
               <Field label={t("products.price_egp")}><Input type="number" min={0} step="0.01" value={editing.defaultPrice === 0 ? "" : editing.defaultPrice} onChange={(e) => setEditing({ ...editing, defaultPrice: parseFloat(e.target.value) || 0 })} className="h-9" /></Field>
@@ -443,9 +450,9 @@ function ProductsPage() {
               <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t("common.actions.cancel")}</Button>
               <Button size="sm" onClick={() => {
                 if (!editing.name.trim() || !editing.sku.trim()) return toast.error(t("products.err_name_sku"));
-                upsertProduct.mutate(editing);
-                toast.success(t("products.saved"));
-                setOpen(false);
+                upsertProduct.mutate(editing, {
+                  onSuccess: () => { toast.success(t("products.saved")); setOpen(false); },
+                });
               }}>{t("products.save_product")}</Button>
             </DialogFooter>
           </DialogContent>

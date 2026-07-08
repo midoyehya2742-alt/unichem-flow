@@ -63,6 +63,7 @@ interface SysNotification {
   time: string;
   type: "success" | "warning" | "error" | "info";
   read: boolean;
+  dealId?: string;
 }
 
 import { useTranslation } from "react-i18next";
@@ -135,6 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           time: fmt(er.requestedAt),
           type: "warning",
           read: seenIds.includes(id),
+          dealId: d.id,
         });
       }
       if (user.role === "salesman" && er.requestedBy === user.id && (er.status === "approved" || er.status === "rejected") && er.reviewedAt) {
@@ -146,6 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           time: fmt(er.reviewedAt),
           type: er.status === "approved" ? "success" : "error",
           read: seenIds.includes(id),
+          dealId: d.id,
         });
       }
     }
@@ -391,7 +394,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         error: AlertCircle,
                         info: Sparkles
                       }[n.type];
-                      const dealId = (n as any).dealId as string | undefined;
+                      const dealId = n.dealId;
                       return (
                         <button
                           key={n.id}

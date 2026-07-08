@@ -6,11 +6,9 @@ import {
   fetchAuditLogsRaw, fetchAuditLogsPaginatedRaw,
 } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import { fromDeal, fromMovement, fromAudit, toCustomer, toProduct, toDeal, nowIso } from "@/lib/store";
-import type { Database } from "@/integrations/supabase/types";
 import type { Customer, Deal, EditRequest, InventoryMovement, Product, User } from "@/lib/types";
-
-type DealRow = Database["public"]["Tables"]["deals"]["Row"];
 
 export const keys = {
   users: ["users"] as const,
@@ -133,6 +131,13 @@ function useInvalidatingMutation<TVariables>(mutationFn: (vars: TVariables) => P
   return useMutation({
     mutationFn,
     onSuccess: () => queryClient.invalidateQueries(),
+    // Every write in this app used to be fire-and-forget with an optimistic
+    // success toast, so RLS/RPC failures were completely invisible. Surface
+    // them centrally. Call sites pass their success toast via `.mutate(vars,
+    // { onSuccess })` so success is only reported once the write actually lands.
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    },
   });
 }
 
@@ -155,8 +160,13 @@ export function useUpsertUser() {
 }
 
 export function useDeleteUser() {
+  // Hard-deleting is unsafe: deals/inventory_movements/audit_logs all FK to
+  // auth.users with no cascade, so a real delete fails for anyone who has ever
+  // touched the system, and a raw `profiles` delete lacked the table grant and
+  // silently no-op'd. "Delete" therefore deactivates (revokes access) via a
+  // SECURITY DEFINER RPC, preserving historical records.
   return useInvalidatingMutation<string>(async (id) => {
-    const { error } = await supabase.from("profiles").delete().eq("id", id);
+    const { error } = await supabase.rpc("deactivate_app_user", { p_user_id: id });
     if (error) throw new Error(error.message);
   });
 }
@@ -228,6 +238,16 @@ export function useUpdateDeal() {
   });
 }
 
+export function useAddDealNote() {
+  // Note-adding goes through a SECURITY DEFINER RPC so the deal's own salesman
+  // (not just finance/admin) can comment — a direct deals UPDATE is RLS-blocked
+  // for salesmen.
+  return useInvalidatingMutation<{ dealId: string; text: string }>(async ({ dealId, text }) => {
+    const { error } = await supabase.rpc("append_deal_note", { p_deal_id: dealId, p_text: text });
+    if (error) throw new Error(error.message);
+  });
+}
+
 export function useUpdateDealFull() {
   return useInvalidatingMutation<{ newDeal: Deal; overrideStock?: boolean }>(async ({ newDeal, overrideStock = false }) => {
     const next = { ...newDeal, updatedAt: nowIso() };
@@ -239,21 +259,25 @@ export function useUpdateDealFull() {
 }
 
 export function useRequestEditDeal() {
-  return useInvalidatingMutation<{ dealId: string; user: User }>(async ({ dealId, user }) => {
-    const { error } = await supabase.rpc("request_deal_edit", {
-      p_deal_id: dealId, p_requested_by: user.id, p_requested_by_name: user.name, p_requested_at: nowIso(),
-    });
+  // The DB only has the 1-arg request_deal_edit(p_deal_id) overload — the 4-arg
+  // version was dropped (migration 20260702061615), so the old call silently
+  // 404'd and the whole edit-request workflow was unreachable. Caller/name are
+  // resolved server-side from auth.uid(), so only the deal id is needed.
+  return useInvalidatingMutation<{ dealId: string; user: User }>(async ({ dealId }) => {
+    const { error } = await supabase.rpc("request_deal_edit", { p_deal_id: dealId });
     if (error) throw new Error(error.message);
   });
 }
 
 export function useReviewEditRequest() {
-  const queryClient = useQueryClient();
   return useInvalidatingMutation<{ dealId: string; approved: boolean; reviewer: User }>(async ({ dealId, approved, reviewer }) => {
-    const dealRows = queryClient.getQueryData<DealRow[]>(keys.dealsRaw);
-    const dealRow = dealRows?.find(d => d.id === dealId);
-    const existing = dealRow?.edit_request as EditRequest | null | undefined;
-    if (!existing) return;
+    // Fetch the current edit_request straight from the DB rather than trusting
+    // it to be present in the dealsRaw query cache — the reviewer may reach the
+    // deal detail page without the raw list having been fetched.
+    const { data: row, error: fetchErr } = await supabase.from("deals").select("edit_request").eq("id", dealId).single();
+    if (fetchErr) throw new Error(fetchErr.message);
+    const existing = (row?.edit_request as EditRequest | null) ?? null;
+    if (!existing) throw new Error("This deal no longer has an edit request to review.");
     const editRequest: EditRequest = {
       ...existing, status: approved ? "approved" : "rejected",
       reviewedBy: reviewer.id, reviewedByName: reviewer.name, reviewedAt: nowIso(),
@@ -264,8 +288,12 @@ export function useReviewEditRequest() {
 }
 
 export function useDeleteDeal() {
+  // A raw `deals` DELETE is a no-op: there is no DELETE RLS policy, so it
+  // matched zero rows and returned no error while the UI claimed success. Route
+  // through a SECURITY DEFINER RPC that restores the deal's consumed stock,
+  // writes movements + audit, then deletes.
   return useInvalidatingMutation<string>(async (id) => {
-    const { error } = await supabase.from("deals").delete().eq("id", id);
+    const { error } = await supabase.rpc("delete_deal_with_inventory", { p_deal_id: id });
     if (error) throw new Error(error.message);
   });
 }
