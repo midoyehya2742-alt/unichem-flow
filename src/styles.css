@@ -237,6 +237,18 @@
     button, [role="button"], a { min-height: 40px; }
   }
 
+  /* Prevent iOS Safari auto-zoom when focusing form inputs (<16px triggers zoom) */
+  @media (max-width: 767px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Better mobile text wrapping — avoid horizontal overflow from long tokens */
+  @media (max-width: 640px) {
+    h1, h2, h3, .truncate-safe { overflow-wrap: anywhere; word-break: break-word; }
+  }
+
   /* Respect reduced motion preference */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -245,6 +257,14 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Reusable safe-area helpers for fixed elements above bottom nav */
+@utility pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+}
+@utility bottom-safe {
+  bottom: calc(env(safe-area-inset-bottom) + 1rem);
 }
 
 /* ── Utility Classes ── */
