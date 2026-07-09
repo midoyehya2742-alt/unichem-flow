@@ -193,7 +193,8 @@ function UsersPage() {
                 </div>
               ) : (
                 <>
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-xs">
                 <thead className="bg-slate-50/50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500">
                   <tr className="text-start font-semibold">
                     <th className="px-5 py-3.5 text-start">{t("users.name")}</th>
