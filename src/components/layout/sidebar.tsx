@@ -7,7 +7,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { User, Role } from "@/lib/types";
+import type { User } from "@/lib/types";
 
 interface SidebarProps {
   user: User;

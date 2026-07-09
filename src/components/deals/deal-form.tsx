@@ -17,7 +17,6 @@ import { formatEGP } from "@/lib/format";
 import type { Customer, DealLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "@tanstack/react-router";
 
 export interface DealFormData {
   customerId: string;

@@ -18,6 +18,7 @@ export default defineConfig({
   },
   nitro: {
     preset: "vercel",
+    // @ts-expect-error — routeRules is a valid Nitro config but not in current type defs
     routeRules: {
       "/**": {
         headers: {

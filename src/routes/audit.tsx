@@ -3,13 +3,12 @@ import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/format";
-import { ScrollText, ShieldAlert, Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Package, Users, Shield, RefreshCw } from "lucide-react";
+import { ScrollText, ShieldAlert, Search, ChevronDown, ChevronRight, FileText, Package, Users, Shield, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/ui/page-transition";
 import { useAuditLogsPaginated } from "@/hooks/queries";
@@ -23,7 +22,6 @@ export const Route = createFileRoute("/audit")({
 
 function AuditPage() {
   const { t } = useTranslation("common");
-  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const debouncedQ = useDebounce(q, 300);
   const [actionFilter, setActionFilter] = useState("all");
@@ -36,11 +34,6 @@ function AuditPage() {
   const paginatedLogs = data?.data || [];
   const totalLogs = data?.count || 0;
   const totalPages = Math.ceil(totalLogs / itemsPerPage);
-
-  useEffect(() => {
-    const tId = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(tId);
-  }, []);
 
   // reset page to 1 when search or filter values change
   useEffect(() => {

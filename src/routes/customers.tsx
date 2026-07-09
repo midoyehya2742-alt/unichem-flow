@@ -3,14 +3,13 @@ import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { newId, nowIso } from "@/lib/store";
 import { useCustomers, useDeals, useUpsertCustomer } from "@/hooks/queries";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
-import { Plus, Archive, Pencil, Search, FolderOpen } from "lucide-react";
+import { Plus, Pencil, Search, FolderOpen } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { Customer } from "@/lib/types";
@@ -22,7 +21,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { motion } from "framer-motion";
-import { Users, TrendingUp, Building2, UserPlus } from "lucide-react";
+import { Users, TrendingUp, UserPlus } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { formatCompactEGP } from "@/lib/format";
 
@@ -79,7 +78,7 @@ function CustomersPage() {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
   };
 
   const [editing, setEditing] = useState<Customer | null>(null);

@@ -49,15 +49,7 @@ export const fromProfile = (r: ProfileRow): User => ({
   createdAt: r.created_at,
 });
 
-const toProfile = (u: User) => ({
-  id: u.id,
-  email: u.email,
-  name: u.name,
-  role: u.role,
-  phone: u.phone ?? null,
-  active: u.active,
-  created_at: u.createdAt,
-});
+
 
 export const fromCustomer = (r: CustomerRow): Customer => ({
   id: r.id,

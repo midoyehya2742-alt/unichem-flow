@@ -1,29 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RequireAuth } from "@/components/require-auth";
-import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle, GlowCardDescription } from "@/components/ui/glow-card";
 import { formatEGP, formatCompactEGP, formatNumber } from "@/lib/format";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Plus, TrendingUp, Wallet, FileText, Clock, AlertTriangle, Users,
-  ArrowRight, ShoppingBag, Package, BarChart2, Zap, Edit2,
-  CalendarDays
+  Plus, TrendingUp, Wallet, FileText, AlertTriangle, Users,
+  ShoppingBag, Package, BarChart2, Zap, Edit2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell,
 } from "recharts";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { PageTransition } from "@/components/ui/page-transition";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import { useDashboardStats, useDeals } from "@/hooks/queries";
 
@@ -56,7 +52,7 @@ function getGreetingKey(): string {
 function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
 
   const { data: stats, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: deals, isLoading: dealsLoading, error: dealsError } = useDeals();
@@ -67,13 +63,13 @@ function Dashboard() {
   const daysForSpark = stats?.last_7_days || [];
   const dealsForSpark = deals || [];
   const revenueSparkData = useMemo(() => {
-    return daysForSpark.map((_, i) => {
+    return daysForSpark.map((_: unknown, i: number) => {
       const d = new Date(); d.setDate(d.getDate() - (6 - i));
       const key = d.toISOString().slice(0, 10);
       return dealsForSpark.filter(x => x.dealDate.slice(0, 10) === key).reduce((s, x) => s + x.total, 0);
     });
   }, [dealsForSpark, daysForSpark]);
-  const profitSparkData = useMemo(() => revenueSparkData.map(r => r * 0.25), [revenueSparkData]);
+  const profitSparkData = useMemo(() => revenueSparkData.map((r: number) => r * 0.25), [revenueSparkData]);
 
   if (statsLoading || dealsLoading) return <div className="p-8 text-center text-slate-500">Loading dashboard...</div>;
   if (statsError || dealsError || !stats) return <div className="p-8 text-center text-red-500">Error loading dashboard</div>;
@@ -85,7 +81,7 @@ function Dashboard() {
   const total = stats.total;
   const paid = stats.paid;
   const outstanding = stats.outstanding;
-  const pending = stats.pending_deals;
+
   
   // Low Stock Alert calculations
   const lowStockProducts = stats.low_stock_count;
@@ -104,10 +100,7 @@ function Dashboard() {
 
   // last 7 days chart data
   const days = stats.last_7_days || [];
-  const chartDays = days.map((d: any, i: number) => {
-    const date = new Date(d.day);
-    return { day: date.toLocaleDateString(i18n.language === "ar" ? "ar" : "en", { weekday: "short" }), total: d.total };
-  });
+  // chart days not used directly in UI
 
   // Sparkline data derived from the 7-day timeline
   const pipelineSparkData = days.map((d: any) => d.total);
@@ -116,7 +109,7 @@ function Dashboard() {
   const outstandingSparkData = days.map((d: any) => d.outstanding);
 
   // Collection rate as trend %
-  const collectionRate = total > 0 ? (paid / total) * 100 : 0;
+
 
   // --- Real Data Wiring for Dashboard Widgets ---
   
@@ -155,7 +148,7 @@ function Dashboard() {
 
   // 2. Collections Overview
   const maxCollected = Math.max(...collectedSparkData, 1); // Avoid div by zero
-  const collectionsChartData = collectedSparkData.map(amount => ({
+  const collectionsChartData = collectedSparkData.map((amount: number) => ({
     amount,
     pct: Math.max((amount / maxCollected) * 100, 5) // at least 5% height for visibility
   }));
@@ -165,7 +158,7 @@ function Dashboard() {
   const aging30to60 = stats.aging_30_60;
   const aging90plus = stats.aging_90_plus;
   const avgAgingDays = stats.avg_aging_days;
-  const totalReceivables = agingCurrent + aging30to60 + aging90plus;
+
 
   // Calculate stroke dash offset for gauge (max 125.6)
   // Let's say 90 days is 100% of the gauge (worst case)
@@ -227,7 +220,7 @@ function Dashboard() {
             </div>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-            {pendingEditRequests.map(deal => (
+            {pendingEditRequests.map((deal: any) => (
               <div key={deal.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/50 dark:bg-white/5 border border-violet-500/10 hover:border-violet-500/20 transition-colors">
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-xs font-semibold truncate">{deal.reference}</span>
@@ -473,7 +466,7 @@ function Dashboard() {
           </GlowCardHeader>
           <GlowCardContent className="h-64 p-4 flex flex-col justify-end gap-2">
              <div className="flex items-end justify-between h-full pt-4">
-                {collectionsChartData.map((d, i) => (
+                {collectionsChartData.map((d: { pct: number; amount: number }, i: number) => (
                   <div key={i} className="w-6 sm:w-8 bg-emerald-500/20 hover:bg-emerald-500/40 transition-colors rounded-t-md relative group cursor-pointer" style={{ height: `${d.pct}%` }}>
                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-800 text-white px-1.5 py-0.5 rounded transition-opacity whitespace-nowrap z-10">
                        {formatEGP(d.amount)}
@@ -482,7 +475,7 @@ function Dashboard() {
                 ))}
              </div>
              <div className="flex justify-between text-[10px] text-slate-400 font-medium mt-2">
-                {days.map(d => (
+                {days.map((d: any) => (
                   <span key={d.day}>{d.day}</span>
                 ))}
              </div>

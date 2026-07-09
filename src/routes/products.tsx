@@ -3,16 +3,15 @@ import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { newId, nowIso } from "@/lib/store";
 import { useProducts, useUpsertProduct, useArchiveProduct } from "@/hooks/queries";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Archive, Pencil, Search, Box, PackageOpen } from "lucide-react";
+import { Plus, Pencil, Search, PackageOpen, Archive } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { formatEGP, formatCompactEGP } from "@/lib/format";
@@ -23,7 +22,7 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { motion } from "framer-motion";
 import { Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { PageTransition } from "@/components/ui/page-transition";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, ComposedChart, Line, Legend } from "recharts";
+import { ResponsiveContainer, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, Line, Legend, ComposedChart } from "recharts";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
@@ -109,7 +108,7 @@ function ProductsPage() {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
   };
 
   const [editing, setEditing] = useState<Product | null>(null);

@@ -7,7 +7,6 @@ import { useCustomers, useDeals, useUpdateDealFull } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
 import { DealForm, type DealFormData } from "@/components/deals/deal-form";
 
 export const Route = createFileRoute("/deals/$id_/edit")({
@@ -22,7 +21,7 @@ function EditDeal() {
   const { data: dealsData } = useDeals();
   const updateDealFull = useUpdateDealFull();
   const navigate = useNavigate();
-  const { t } = useTranslation("common");
+
 
   const customers = customersData ?? [];
   const deal = dealsData?.find((d) => d.id === id);

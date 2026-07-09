@@ -1,15 +1,15 @@
-import { Link, useRouterState, useNavigate, useLocation } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+
 import {
   LayoutDashboard, FileText, Plus, Users, Package, UserCog,
-  BarChart3, ScrollText, Settings, LogOut, Menu, X, Beaker, Warehouse,
-  Search, Bell, Sun, Moon, Star, ChevronLeft, ChevronRight, History,
-  Command, User, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight, Calendar
+  BarChart3, ScrollText, Settings, LogOut, Menu, Warehouse,
+  Search, Bell, Sun, Moon, ChevronLeft, ChevronRight,
+  Command, Settings2, Sparkles, CheckCircle2, AlertTriangle, AlertCircle, ArrowRight, Calendar
 } from "lucide-react";
 import { useState, type ReactNode, useEffect } from "react";
 import type { Role } from "@/lib/types";
@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent,
 } from "@/components/ui/dialog";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
@@ -32,11 +32,7 @@ interface NavItem {
   roles: Role[];
 }
 
-interface NavSection {
-  section: string;
-  sectionKey: string;
-  items: NavItem[];
-}
+
 
 const NAV: NavItem[] = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, roles: ["admin", "finance", "salesman"] },
@@ -77,14 +73,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: dealsData } = useDeals();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [historyList, setHistoryList] = useState<string[]>([]);
+  const [_historyList, setHistoryList] = useState<string[]>([]);
   
   // Read-state for notifications, persisted per user
   const seenKey = user ? `unichem-notif-seen-${user.id}` : "";

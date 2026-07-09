@@ -12,7 +12,7 @@ import {
 import {
   Plus, Search, Download, FilterX, Eye
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useDealsPaginated, useDashboardStats } from "@/hooks/queries";
 import { useDebounce } from "@/hooks/use-debounce";
 import { formatEGP, formatDate, formatCompactEGP } from "@/lib/format";
@@ -21,14 +21,14 @@ import { useTranslation } from "react-i18next";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
 import type { Deal } from "@/lib/types";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, LineChart, Line, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart, Line, Legend } from "recharts";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { motion } from "framer-motion";
 import { PageTransition } from "@/components/ui/page-transition";
-import { Wallet, FileText, ShoppingBag, TrendingUp, AlertTriangle } from "lucide-react";
+import { Wallet, FileText, AlertTriangle } from "lucide-react";
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+
 
 export const Route = createFileRoute("/deals/")({
   head: () => ({ meta: [{ title: "Deals — UniChem ERP" }] }),
@@ -80,7 +80,7 @@ function DealsList() {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
   };
 
   const exportCsv = () => {

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Settings, Save, ShieldAlert, ImagePlus, Trash2, Globe, Moon, Sun, Clock, Calendar } from "lucide-react";
+import { Settings, Save, ShieldAlert, ImagePlus, Trash2, Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageTransition } from "@/components/ui/page-transition";
 import { useTheme } from "@/lib/theme";

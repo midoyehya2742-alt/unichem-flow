@@ -7,7 +7,6 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  ColumnFiltersState,
   VisibilityState,
   useReactTable,
 } from "@tanstack/react-table"
@@ -266,7 +265,7 @@ export function DataTable<TData, TValue>({
   )
 }
 
-export function DataTableColumnHeader<TData, TValue>({
+export function DataTableColumnHeader({
   column,
   title,
   className,

@@ -3,7 +3,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { PageHeader } from "@/components/app-shell";
 import { useAuth } from "@/lib/auth";
 import { newId, nowIso } from "@/lib/store";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,21 +19,21 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PackagePlus, Pencil, Trash2, Search, Download, Printer, Plus, Minus, RefreshCw, PackageOpen } from "lucide-react";
+import { Pencil, Trash2, Search, Download, Plus, Minus, RefreshCw, PackageOpen } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useInventoryMovementsPaginated, useDashboardStats, useProducts, useSettings, useUpsertProduct, useDeleteProduct, useAdjustInventory } from "@/hooks/queries";
 import { formatDateTime, formatNumber, formatCompactEGP } from "@/lib/format";
 import type { InventoryAdjustmentType, Product, InventoryMovement } from "@/lib/types";
-import { cn } from "@/lib/utils";
+
 import { useTranslation } from "react-i18next";
 import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ColumnDef } from "@tanstack/react-table";
 import { PageTransition } from "@/components/ui/page-transition";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, AreaChart, Area, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, Legend } from "recharts";
 import { GlowCard, GlowCardContent, GlowCardHeader, GlowCardTitle } from "@/components/ui/glow-card";
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+
 import { KpiCard } from "@/components/ui/kpi-card";
 import { motion } from "framer-motion";
 import { AlertTriangle, Package, TrendingUp } from "lucide-react";
@@ -117,7 +117,7 @@ function InventoryPage() {
   };
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+    show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
   };
 
   const openNew = () => {
@@ -726,16 +726,5 @@ function AdjustmentDialog({ product, onClose }: { product: Product; onClose: () 
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-slate-500">{label}</Label>{children}</div>;
-}
-
-function Stat({ label, value, tone = "normal" }: { label: string; value: string; tone?: "normal" | "warning" }) {
-  return (
-    <Card className="border-slate-200 dark:border-slate-800 shadow-sm hover:shadow transition">
-      <CardContent className="p-5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-        <div className={cn("text-2xl font-black mt-1", tone === "warning" ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-white")}>{value}</div>
-      </CardContent>
-    </Card>
-  );
 }
 

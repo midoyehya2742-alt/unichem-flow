@@ -650,7 +650,7 @@ function SettlementPanel({
   );
 }
 
-function ActivityTimelineCard({ deal, t }: { deal: any; t: (k: string) => string }) {
+function ActivityTimelineCard({ deal, t: _t }: { deal: any; t: (k: string) => string }) {
   const items = useMemo<TimelineItem[]>(() => {
     // Keep the raw ISO timestamp alongside each item purely for sorting — the
     // displayed `time` is a formatted string ("4 Jul 2026"), which does not sort
