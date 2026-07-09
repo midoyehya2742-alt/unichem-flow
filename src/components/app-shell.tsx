@@ -328,8 +328,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           {/* Quick Action Utilities */}
-          <div className="flex items-center gap-3">
-            {/* Search Input Trigger */}
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Search Input Trigger (desktop) */}
             <button
               onClick={() => setSearchOpen(true)}
               className="hidden lg:flex items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/30 text-slate-400 w-64 px-3 py-1.5 rounded-lg text-sm transition justify-between"
@@ -343,13 +343,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               </kbd>
             </button>
 
+            {/* Search icon trigger (mobile/tablet) */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="lg:hidden p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              aria-label={t("shell.search_placeholder", { defaultValue: "Search" })}
+            >
+              <Search className="h-4.5 w-4.5" />
+            </button>
+
             {/* Date Picker Placeholder */}
             <div className="hidden xl:flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300">
                <Calendar className="h-4 w-4 text-slate-400" />
                <span className="text-xs font-medium">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
             </div>
 
-            {/* New Deal Button */}
+            {/* New Deal Button (desktop only; mobile gets FAB) */}
             {(user?.role === "salesman" || user?.role === "admin") && (
               <Link to="/deals/new">
                 <Button className="hidden md:flex bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 rounded-lg px-4 h-9">
