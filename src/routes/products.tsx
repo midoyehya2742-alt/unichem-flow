@@ -318,8 +318,8 @@ function ProductsPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
+              <div className="overflow-x-auto -mx-px">
+                <table className="w-full min-w-[720px] text-xs text-left">
                   <thead className="bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800/50 text-slate-500 font-semibold">
                     <tr>
                       <th className="px-5 py-3 text-start">{t("products.sku")}</th>

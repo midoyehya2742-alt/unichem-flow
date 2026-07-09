@@ -463,6 +463,10 @@ export type Database = {
         }
         Returns: string
       }
+      append_deal_note: {
+        Args: { p_deal_id: string; p_text: string }
+        Returns: undefined
+      }
       create_app_user: {
         Args: {
           p_active?: boolean
@@ -482,6 +486,11 @@ export type Database = {
       current_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      deactivate_app_user: { Args: { p_user_id: string }; Returns: undefined }
+      delete_deal_with_inventory: {
+        Args: { p_deal_id: string }
+        Returns: undefined
       }
       get_dashboard_stats: { Args: never; Returns: Json }
       has_role: {

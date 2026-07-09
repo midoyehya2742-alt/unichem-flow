@@ -197,7 +197,7 @@ function DealsList() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column - Sales trend & Directory list (2/3 width) */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6 order-2 lg:order-1">
           {/* Daily Sales Line Chart */}
           <motion.div variants={itemVariants} initial="hidden" animate="show">
             <GlowCard className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -326,7 +326,7 @@ function DealsList() {
           variants={containerVariants} 
           initial="hidden" 
           animate="show"
-          className="lg:col-span-4 space-y-6 lg:sticky lg:top-24"
+          className="lg:col-span-4 space-y-6 lg:sticky lg:top-24 order-1 lg:order-2"
         >
           {/* Vertical Stack of KPIs */}
           <div className="space-y-4">

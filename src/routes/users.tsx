@@ -193,7 +193,8 @@ function UsersPage() {
                 </div>
               ) : (
                 <>
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-xs">
                 <thead className="bg-slate-50/50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500">
                   <tr className="text-start font-semibold">
                     <th className="px-5 py-3.5 text-start">{t("users.name")}</th>
@@ -259,6 +260,7 @@ function UsersPage() {
                   ))}
                   </tbody>
                 </table>
+                </div>
                 <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/50">
                   <div className="text-xs text-slate-500">
                     {t("common.showing", { defaultValue: "Showing" })} {paginated.length} {t("common.of", { defaultValue: "of" })} {filtered.length} {t("users.personnel_directory", { defaultValue: "Personnel" })}

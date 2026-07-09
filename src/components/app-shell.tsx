@@ -328,8 +328,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           {/* Quick Action Utilities */}
-          <div className="flex items-center gap-3">
-            {/* Search Input Trigger */}
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Search Input Trigger (desktop) */}
             <button
               onClick={() => setSearchOpen(true)}
               className="hidden lg:flex items-center gap-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/30 text-slate-400 w-64 px-3 py-1.5 rounded-lg text-sm transition justify-between"
@@ -343,13 +343,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               </kbd>
             </button>
 
+            {/* Search icon trigger (mobile/tablet) */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="lg:hidden p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              aria-label={t("shell.search_placeholder", { defaultValue: "Search" })}
+            >
+              <Search className="h-4.5 w-4.5" />
+            </button>
+
             {/* Date Picker Placeholder */}
             <div className="hidden xl:flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg text-sm text-slate-600 dark:text-slate-300">
                <Calendar className="h-4 w-4 text-slate-400" />
                <span className="text-xs font-medium">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
             </div>
 
-            {/* New Deal Button */}
+            {/* New Deal Button (desktop only; mobile gets FAB) */}
             {(user?.role === "salesman" || user?.role === "admin") && (
               <Link to="/deals/new">
                 <Button className="hidden md:flex bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 rounded-lg px-4 h-9">
@@ -475,13 +484,25 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content Panel */}
-        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 pb-20 md:pb-0 print:bg-white print:min-h-0 print:overflow-visible print:pb-0">
+        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 pb-24 md:pb-0 print:bg-white print:min-h-0 print:overflow-visible print:pb-0">
           {children}
         </main>
       </div>
 
+      {/* Mobile FAB — quick create Deal for salesman/admin */}
+      {(user?.role === "salesman" || user?.role === "admin") && !pathname.startsWith("/deals/new") && (
+        <Link
+          to="/deals/new"
+          aria-label={t("dashboard.new_deal", { defaultValue: "New Deal" })}
+          className="md:hidden fixed right-4 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white grid place-items-center shadow-xl shadow-indigo-600/30 active:scale-95 transition print:hidden"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.75rem)" }}
+        >
+          <Plus className="h-6 w-6" />
+        </Link>
+      )}
+
       {/* Mobile bottom quick-nav — primary routes always one tap away */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] print:hidden shadow-[0_-1px_3px_rgb(0_0_0/0.05)] dark:shadow-[0_-1px_3px_rgb(0_0_0/0.2)]">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] print:hidden shadow-[0_-1px_3px_rgb(0_0_0/0.05)] dark:shadow-[0_-1px_3px_rgb(0_0_0/0.2)]">
         <div className="grid grid-cols-4">
           {[
             { to: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
@@ -495,14 +516,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={to}
                 to={to}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
+                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors min-h-[56px]",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {active && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-primary" />}
-                <Icon className="h-4.5 w-4.5" />
+                <Icon className="h-5 w-5" />
                 <span className="truncate max-w-full px-1">{label}</span>
               </Link>
             );
