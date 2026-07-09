@@ -260,6 +260,7 @@ function UsersPage() {
                   ))}
                   </tbody>
                 </table>
+                </div>
                 <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/50">
                   <div className="text-xs text-slate-500">
                     {t("common.showing", { defaultValue: "Showing" })} {paginated.length} {t("common.of", { defaultValue: "of" })} {filtered.length} {t("users.personnel_directory", { defaultValue: "Personnel" })}
