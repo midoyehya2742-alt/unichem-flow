@@ -484,13 +484,25 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page Content Panel */}
-        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 pb-20 md:pb-0 print:bg-white print:min-h-0 print:overflow-visible print:pb-0">
+        <main className="flex-1 overflow-x-hidden min-h-[calc(100vh-56px)] bg-slate-50 dark:bg-slate-950/60 pb-24 md:pb-0 print:bg-white print:min-h-0 print:overflow-visible print:pb-0">
           {children}
         </main>
       </div>
 
+      {/* Mobile FAB — quick create Deal for salesman/admin */}
+      {(user?.role === "salesman" || user?.role === "admin") && !pathname.startsWith("/deals/new") && (
+        <Link
+          to="/deals/new"
+          aria-label={t("dashboard.new_deal", { defaultValue: "New Deal" })}
+          className="md:hidden fixed right-4 z-40 h-14 w-14 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 text-white grid place-items-center shadow-xl shadow-indigo-600/30 active:scale-95 transition print:hidden"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 4.75rem)" }}
+        >
+          <Plus className="h-6 w-6" />
+        </Link>
+      )}
+
       {/* Mobile bottom quick-nav — primary routes always one tap away */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] print:hidden shadow-[0_-1px_3px_rgb(0_0_0/0.05)] dark:shadow-[0_-1px_3px_rgb(0_0_0/0.2)]">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border/50 bg-background/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)] print:hidden shadow-[0_-1px_3px_rgb(0_0_0/0.05)] dark:shadow-[0_-1px_3px_rgb(0_0_0/0.2)]">
         <div className="grid grid-cols-4">
           {[
             { to: "/dashboard", icon: LayoutDashboard, label: t("nav.dashboard") },
@@ -504,14 +516,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={to}
                 to={to}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors",
+                  "relative flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors min-h-[56px]",
                   active
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {active && <span className="absolute top-1.5 h-1 w-1 rounded-full bg-primary" />}
-                <Icon className="h-4.5 w-4.5" />
+                <Icon className="h-5 w-5" />
                 <span className="truncate max-w-full px-1">{label}</span>
               </Link>
             );
