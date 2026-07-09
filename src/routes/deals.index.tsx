@@ -326,7 +326,7 @@ function DealsList() {
           variants={containerVariants} 
           initial="hidden" 
           animate="show"
-          className="lg:col-span-4 space-y-6 lg:sticky lg:top-24"
+          className="lg:col-span-4 space-y-6 lg:sticky lg:top-24 order-1 lg:order-2"
         >
           {/* Vertical Stack of KPIs */}
           <div className="space-y-4">
